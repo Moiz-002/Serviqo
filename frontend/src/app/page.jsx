@@ -44,10 +44,21 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      const scrollPos = window.scrollY || document.documentElement.scrollTop;
+      setIsScrolled(scrollPos > 10);
     };
-    window.addEventListener('scroll', handleScroll);
+    
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setIsOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const navLinks = [
@@ -56,19 +67,20 @@ const Navbar = () => {
     { label: 'For Professionals', href: '#for-professionals' },
   ];
 
+  const scrolledClasses = 'bg-white/95 backdrop-blur-md border-b border-navy-100 shadow-md py-3';
+  const transparentClasses = 'bg-transparent py-5 max-md:bg-white max-md:py-3 max-md:border-b max-md:border-navy-100';
+
   return (
     <nav
-      className={`fixed w-full top-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-white backdrop-blur-lg border-b border-navy-100 shadow-md py-3'
-          : 'bg-transparent py-5'
+      className={`fixed w-full top-0 z-[100] transition-all duration-300 isolate ${
+        isScrolled || isOpen ? scrolledClasses : transparentClasses
       }`}
     >
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between relative z-50">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between relative pointer-events-auto">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+        <Link href="/" className="flex items-center gap-2 group cursor-pointer relative z-[110]">
           <img src="/serviqo_favicon.png" alt="Serviqo Logo" className="w-10 h-10 object-contain rounded-2xl" />
-          <span className={`text-2xl font-black tracking-tighter transition-colors ${isScrolled ? 'text-navy-900' : 'text-navy-900'}`}>
+          <span className="text-2xl font-black tracking-tighter text-navy-900">
             Serviqo
           </span>
         </Link>
@@ -95,26 +107,32 @@ const Navbar = () => {
           >
             Sign In
           </a>
-          <Button variant="outline" size="md" className="cursor-pointer">
+          <Link href="/post-job" className="px-5 py-2.5 border-2 border-navy-600 text-navy-600 font-bold rounded-xl hover:bg-navy-50 transition-all">
             Post a Job
-          </Button>
-          <Button variant="primary" size="md" className="cursor-pointer shadow-lg hover:shadow-cyan-200/50">
-            <Link href="/signup">Get Started</Link>
-          </Button>
+          </Link>
+          <Link href="/signup" className="px-5 py-2.5 bg-navy-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-200/50 hover:bg-navy-700 transition-all">
+            Get Started
+          </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
         <button
-          className="md:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer z-50 relative pointer-events-auto"
+          className="md:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer relative z-[110] pointer-events-auto"
           onClick={() => setIsOpen(!isOpen)}
           type="button"
+          aria-label="Toggle menu"
+          aria-expanded={isOpen}
         >
           {isOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
         </button>
       </div>
 
       {/* Mobile Menu */}
-      <div className={`md:hidden absolute top-full left-0 w-full bg-white border-t border-navy-100 shadow-2xl transition-all duration-300 transform ${isOpen ? 'translate-y-0 opacity-100 visible' : '-translate-y-4 opacity-0 invisible'}`}>
+      <div 
+        className={`md:hidden absolute top-full left-0 w-full bg-white border-t border-navy-100 shadow-2xl transition-all duration-300 transform ${
+          isOpen ? 'translate-y-0 opacity-100 visible pointer-events-auto' : '-translate-y-4 opacity-0 invisible pointer-events-none'
+        }`}
+      >
         <div className="container mx-auto px-4 py-6 space-y-4">
           {navLinks.map((link) => (
             <a
@@ -127,12 +145,12 @@ const Navbar = () => {
             </a>
           ))}
           <div className="pt-4 space-y-3">
-            <a href="/login" className="block text-center py-3 font-bold text-navy-900 border-2 border-navy-100 rounded-xl cursor-pointer">
+            <Link href="/login" className="block text-center py-3 font-bold text-navy-900 border-2 border-navy-100 rounded-xl cursor-pointer">
               Sign In
-            </a>
-            <Button variant="primary" size="lg" className="w-full cursor-pointer shadow-lg">
+            </Link>
+            <Link href="/signup" className="block text-center py-4 bg-navy-600 text-white font-black rounded-xl shadow-lg cursor-pointer">
               Get Started
-            </Button>
+            </Link>
           </div>
         </div>
       </div>
