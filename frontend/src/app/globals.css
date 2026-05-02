@@ -222,7 +222,7 @@
   box-sizing: border-box;
 }
 
-// Enable smooth scrolling for anchor links and programmatic scrolls
+/* Enable smooth scrolling for anchor links and programmatic scrolls */
 
 html {
   scroll-behavior: smooth;
