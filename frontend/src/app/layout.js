@@ -28,9 +28,15 @@ export const metadata = {
     type: "website",
   },
   icons: {
-    icon: '/public/serviqo_favicon.png',
+    icon: '/serviqo_favicon.png',
   },
-  
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }) {
@@ -39,9 +45,6 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`${inter.variable} ${merriweather.variable} ${firaCode.variable} h-full antialiased`}
     >
-    <head>
-      <link rel="icon" href="serviqo_favicon.png" />
-    </head>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

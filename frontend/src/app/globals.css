@@ -256,6 +256,55 @@ code, pre {
 }
 
 /* ============================================================================
+   iOS SAFARI CLICK FIX — cursor:pointer required for onClick
+   ============================================================================
+   iOS Safari will NOT fire onClick on <div>, <span>, <li>, or custom 
+   components unless the element has cursor: pointer applied. This is not
+   replicated in Chrome DevTools, which is why mobile tests fail on real
+   devices but pass in DevTools.
+   ============================================================================ */
+
+[role="button"],
+button,
+a,
+label,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="reset"] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* For any custom interactive div/span, explicitly add cursor-pointer class */
+/* Example: <div onClick={...} className="cursor-pointer">Click me</div> */
+
+/* ============================================================================
+   DECORATIVE/VISUAL-ONLY ELEMENTS — pointer-events: none
+   ============================================================================
+   Prevents animated overlays, gradient pseudo-elements, and decorative elements
+   from capturing touch events and blocking interactions on real mobile devices.
+   ============================================================================ */
+
+.bg-gradient-hero::before,
+.bg-gradient-hero::after {
+  pointer-events: none;
+}
+
+/* Decorative SVGs and visual-only elements should opt-in via .pointer-events-none
+   or [data-decorative]. We do NOT globally disable pointer-events on
+   [aria-hidden="true"] because that selector matches lucide-react icons and
+   any wrapper that may legitimately need to receive pointer events. */
+[data-decorative="true"] {
+  pointer-events: none;
+}
+
+/* Remove mobile tap highlight to avoid accidental visual blocking */
+button, a {
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+
+/* ============================================================================
    FOCUS RING SYSTEM — Accessible focus states
    ============================================================================ */
 

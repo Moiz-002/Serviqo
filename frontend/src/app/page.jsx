@@ -117,8 +117,8 @@ const Navbar = () => {
 
         {/* Mobile Menu Toggle */}
         <button
-          className="md:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer relative z-[110] pointer-events-auto"
-          onClick={() => setIsOpen(!isOpen)}
+          className="md:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer relative z-[110]"
+          onClick={() => setIsOpen((v) => !v)}
           type="button"
           aria-label="Toggle menu"
           aria-expanded={isOpen}
@@ -166,8 +166,8 @@ const HeroSection = () => {
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-neutral-50">
       {/* Decorative Background Glows */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-cyan-50/50 blur-[120px] rounded-full -mr-64 -z-10" />
-      <div className="absolute bottom-0 left-0 w-1/3 h-full bg-navy-50/50 blur-[100px] rounded-full -ml-32 -z-10" />
+      <div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 w-1/2 h-full bg-cyan-50/50 blur-[120px] rounded-full -mr-64 -z-10" />
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 w-1/3 h-full bg-navy-50/50 blur-[100px] rounded-full -ml-32 -z-10" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -286,8 +286,8 @@ const HeroSection = () => {
             </div>
             
             {/* Background Accent Shapes */}
-            <div className="absolute -top-10 -left-10 w-32 h-32 border-4 border-cyan-200 rounded-full opacity-20" />
-            <div className="absolute bottom-20 -right-10 w-48 h-48 bg-navy-600 rounded-full opacity-5" />
+            <div aria-hidden="true" className="pointer-events-none absolute -top-10 -left-10 w-32 h-32 border-4 border-cyan-200 rounded-full opacity-20" />
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-20 -right-10 w-48 h-48 bg-navy-600 rounded-full opacity-5" />
           </div>
         </div>
       </div>
@@ -442,7 +442,7 @@ const HowItWorksSection = () => {
             return (
               <div key={idx} className="group relative">
                 {/* Step Number (Large Background) */}
-                <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-[120px] font-black text-navy-50/50 select-none transition-all group-hover:text-cyan-50/70 group-hover:-translate-y-2 duration-500">
+                <div aria-hidden="true" className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 text-[120px] font-black text-navy-50/50 select-none transition-all group-hover:text-cyan-50/70 group-hover:-translate-y-2 duration-500">
                   {step.number}
                 </div>
 
@@ -571,8 +571,8 @@ const ServiceCategoriesSection = () => {
                 />
 
                 {/* Gradient Overlays */}
-                <div className="absolute inset-0 bg-gradient-to-t from-navy-900 via-navy-900/20 to-transparent opacity-90 group-hover:opacity-60 transition-opacity" />
-                <div className="absolute inset-0 border-2 border-transparent group-hover:border-white/20 rounded-[32px] transition-all m-4" />
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy-900 via-navy-900/20 to-transparent opacity-90 group-hover:opacity-60 transition-opacity" />
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 border-2 border-transparent group-hover:border-white/20 rounded-[32px] transition-all m-4" />
 
                 {/* Content */}
                 <div className="absolute inset-0 p-8 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
@@ -887,7 +887,7 @@ const TestimonialsSection = () => {
               className="group relative bg-neutral-50 rounded-[40px] p-8 lg:p-10 border border-navy-100/50 hover:bg-white hover:shadow-2xl hover:border-cyan-100 transition-all duration-500"
             >
               {/* Quote Icon */}
-              <div className="absolute top-8 right-8 text-6xl text-navy-100/50 group-hover:text-cyan-100 transition-colors font-serif">
+              <div aria-hidden="true" className="pointer-events-none absolute top-8 right-8 text-6xl text-navy-100/50 group-hover:text-cyan-100 transition-colors font-serif">
                 “
               </div>
 

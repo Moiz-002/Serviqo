@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactCompiler: true,
+  allowedDevOrigins: ['192.168.1.6', '*.local'],
   images: {
-    domains: ['images.unsplash.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
   },
 };
 
