@@ -1,18 +1,18 @@
 import { User, Briefcase, Lock, ShieldCheck, CheckCircle } from 'lucide-react';
 
-const STEPS = [
-  { id: 1, label: 'Profile', icon: User },
-  { id: 2, label: 'Details', icon: Briefcase },
-  { id: 3, label: 'Security', icon: Lock },
-  { id: 4, label: 'Verify', icon: ShieldCheck },
-];
+export const StepIndicator = ({ currentStep = 1, completedSteps = [], steps = [] }) => {
+  const displaySteps = steps.length > 0 ? steps : [
+    { id: 1, label: 'Profile', icon: User },
+    { id: 2, label: 'Details', icon: Briefcase },
+    { id: 3, label: 'Security', icon: Lock },
+    { id: 4, label: 'Verify', icon: ShieldCheck },
+  ];
 
-export const StepIndicator = ({ currentStep = 1, completedSteps = [] }) => {
   return (
     <div className="w-full mb-8 sm:mb-12">
       {/* Steps Container */}
       <div className="flex items-center justify-center gap-2 sm:gap-4">
-        {STEPS.map((step, idx) => {
+        {displaySteps.map((step, idx) => {
           const isActive = step.id === currentStep;
           const isCompleted = completedSteps.includes(step.id);
           const Icon = step.icon;
@@ -54,7 +54,7 @@ export const StepIndicator = ({ currentStep = 1, completedSteps = [] }) => {
               </div>
 
               {/* Connecting Line */}
-              {idx < STEPS.length - 1 && (
+              {idx < displaySteps.length - 1 && (
                 <div
                   className={`h-1.5 w-6 sm:w-10 mx-2 sm:mx-3 rounded-full transition-all duration-300 ${
                     isCompleted || completedSteps.includes(step.id + 1)
