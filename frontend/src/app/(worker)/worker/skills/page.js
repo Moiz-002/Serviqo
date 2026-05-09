@@ -1,26 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Wrench, CheckCircle2, Plus, X, Info, Save } from 'lucide-react';
-import { CATEGORIES, DUMMY_WORKER } from '@/config/worker-constants';
+import { CATEGORIES } from '@/config/worker-constants';
 import TagInput from '@/components/ui/TagInput';
+import * as api from '@/lib/api';
 
 export default function WorkerSkillsPage() {
-  const [primaryCategory, setPrimaryCategory] = useState(DUMMY_WORKER.primaryCategory);
-  const [skills, setSkills] = useState(DUMMY_WORKER.skills);
-  const [hourlyRate, setHourlyRate] = useState(DUMMY_WORKER.hourlyRate);
+  const [primaryCategory, setPrimaryCategory] = useState('');
+  const [skills, setSkills] = useState([]);
+  const [hourlyRate, setHourlyRate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    api.getMe().then((data) => {
+      const u = data.user || data;
+      const cat = CATEGORIES.find(c => c.name === u.serviceCategory || c.id === u.serviceCategory);
+      setPrimaryCategory(cat?.id || 'electrical');
+      setSkills(u.skills || []);
+      setHourlyRate(String(u.hourlyRate || ''));
+    }).catch(() => {});
+  }, []);
 
   const selectedCategoryData = CATEGORIES.find(c => c.id === primaryCategory);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError('');
+    try {
+      await api.updateSkills({
+        skills,
+        serviceCategory: selectedCategoryData?.name || primaryCategory,
+        hourlyRate: Number(hourlyRate) || 0,
+      });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -43,6 +64,9 @@ export default function WorkerSkillsPage() {
           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           Skills and rates updated successfully!
         </div>
+      )}
+      {saveError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm">{saveError}</div>
       )}
 
       <div className="space-y-8">
@@ -119,7 +143,7 @@ export default function WorkerSkillsPage() {
               </div>
             </div>
             <p className="text-xs text-neutral-500 mt-3">
-              Market average for {selectedCategoryData?.name} in {DUMMY_WORKER.city}: 
+              Market average for {selectedCategoryData?.name || 'your category'}:
               <span className="font-bold text-neutral-700 ml-1">1,200 - 3,500 PKR</span>
             </p>
           </div>

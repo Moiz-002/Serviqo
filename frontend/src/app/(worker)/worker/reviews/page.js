@@ -1,10 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare, ThumbsUp, ChevronDown, Filter } from 'lucide-react';
-import { DUMMY_REVIEWS, DUMMY_WORKER } from '@/config/worker-constants';
+import * as api from '@/lib/api';
 
 export default function WorkerReviewsPage() {
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(0);
+
+  useEffect(() => {
+    api.getMyReviews()
+      .then((data) => {
+        const all = data.reviews || [];
+        setReviews(all);
+        if (all.length > 0) {
+          setAvgRating(all.reduce((sum, r) => sum + (r.rating || 0), 0) / all.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -32,17 +47,17 @@ export default function WorkerReviewsPage() {
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm text-center">
             <p className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Overall Rating</p>
-            <h2 className="text-5xl font-black text-neutral-900 mt-2">{DUMMY_WORKER.rating}</h2>
+            <h2 className="text-5xl font-black text-neutral-900 mt-2">{avgRating ? avgRating.toFixed(1) : '—'}</h2>
             <div className="flex items-center justify-center gap-1 mt-3">
               {[1, 2, 3, 4, 5].map((s) => (
-                <Star 
-                  key={s} 
-                  className={`w-5 h-5 ${s <= Math.round(DUMMY_WORKER.rating) ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'}`} 
+                <Star
+                  key={s}
+                  className={`w-5 h-5 ${s <= Math.round(avgRating) ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'}`}
                 />
               ))}
             </div>
             <p className="text-sm text-neutral-500 mt-4 font-medium">
-              Based on {DUMMY_WORKER.totalReviews} reviews
+              Based on {reviews.length} reviews
             </p>
           </div>
 
@@ -68,55 +83,47 @@ export default function WorkerReviewsPage() {
 
         {/* Reviews List */}
         <div className="lg:col-span-3 space-y-4">
-          {DUMMY_REVIEWS.map((review) => (
-            <div key={review.id} className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm hover:border-primary-200 transition-colors">
+          {reviews.length === 0 ? (
+            <div className="bg-white p-12 rounded-2xl border border-neutral-200 text-center text-neutral-400">No reviews yet.</div>
+          ) : reviews.map((review) => (
+            <div key={review._id} className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm hover:border-primary-200 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg">
-                    {review.userName.charAt(0)}
+                    {(review.customer?.name || review.reviewer?.name || 'A').charAt(0)}
                   </div>
                   <div>
-                    <h4 className="font-bold text-neutral-900">{review.userName}</h4>
+                    <h4 className="font-bold text-neutral-900">{review.customer?.name || review.reviewer?.name || 'Anonymous'}</h4>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex items-center gap-0.5">
                         {[1, 2, 3, 4, 5].map((s) => (
-                          <Star 
-                            key={s} 
-                            className={`w-3 h-3 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'}`} 
+                          <Star
+                            key={s}
+                            className={`w-3 h-3 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'}`}
                           />
                         ))}
                       </div>
                       <span className="text-xs text-neutral-400">•</span>
-                      <span className="text-xs text-neutral-400 font-medium">{review.date}</span>
+                      <span className="text-xs text-neutral-400 font-medium">
+                        {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="px-3 py-1 bg-neutral-50 rounded-lg border border-neutral-100">
-                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">
-                    {review.service}
-                  </span>
-                </div>
+                {review.job?.serviceCategory && (
+                  <div className="px-3 py-1 bg-neutral-50 rounded-lg border border-neutral-100">
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">
+                      {review.job.serviceCategory}
+                    </span>
+                  </div>
+                )}
               </div>
-              
-              <p className="mt-4 text-neutral-700 leading-relaxed italic">
-                &quot;{review.comment}&quot;
-              </p>
 
-              <div className="mt-6 pt-6 border-t border-neutral-50 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <button className="flex items-center gap-2 text-xs font-bold text-neutral-500 hover:text-primary-600 transition-colors">
-                    <ThumbsUp className="w-4 h-4" />
-                    Helpful
-                  </button>
-                  <button className="flex items-center gap-2 text-xs font-bold text-neutral-500 hover:text-primary-600 transition-colors">
-                    <MessageSquare className="w-4 h-4" />
-                    Reply
-                  </button>
-                </div>
-                <button className="text-xs font-bold text-neutral-400 hover:text-neutral-600">
-                  Report
-                </button>
-              </div>
+              {review.comment && (
+                <p className="mt-4 text-neutral-700 leading-relaxed italic">
+                  &quot;{review.comment}&quot;
+                </p>
+              )}
             </div>
           ))}
 

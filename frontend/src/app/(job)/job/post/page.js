@@ -21,6 +21,7 @@ import FormField from '@/components/ui/FormField';
 import FileUpload from '@/components/ui/FileUpload';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import * as api from '@/lib/api';
 
 const initialState = {
   step: 1,
@@ -94,11 +95,21 @@ export default function PostJobPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const formData = new FormData();
+      formData.append('title', state.title);
+      formData.append('description', state.description);
+      formData.append('category', CATEGORIES.find(c => c.id === state.category)?.name || state.category);
+      formData.append('city', state.city);
+      formData.append('area', state.area);
+      formData.append('budgetRange', BUDGET_RANGES.find(b => b.id === state.budget)?.range || state.budget);
+      formData.append('urgency', state.urgency);
+      state.images.forEach(file => formData.append('images', file));
+      await api.createJob(formData);
       router.push('/job/success');
-    }, 2000);
+    } catch {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFilesChange = (files) => {

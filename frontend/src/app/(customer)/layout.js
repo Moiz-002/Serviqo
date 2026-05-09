@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   User, 
@@ -19,6 +19,7 @@ import {
   HelpCircle,
   ChevronRight
 } from 'lucide-react';
+import * as api from '@/lib/api';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/customer/dashboard' },
@@ -29,7 +30,36 @@ const menuItems = [
 
 export default function CustomerLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await api.getMe();
+        setUser(data.user || data);
+      } catch (err) {
+        console.error('Failed to fetch user:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
+  const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'C';
 
   return (
     <div className="flex min-h-screen bg-neutral-50 flex-col">
@@ -69,17 +99,25 @@ export default function CustomerLayout({ children }) {
             <div className="h-8 w-[1px] bg-neutral-200 mx-1 hidden sm:block"></div>
             
             <Link href="/customer/profile" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-primary-100 transition-transform group-hover:scale-105">
-                <img 
-                  src="/profile_2.png" 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = "https://ui-avatars.com/api/?name=Zainab+R&background=1E3A8A&color=fff";
-                  }}
-                />
+              <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary-100 transition-all group-hover:border-primary shadow-sm flex items-center justify-center bg-primary-subtle">
+                {user?.profilePicture ? (
+                  <img 
+                    src={api.getImageUrl(user.profilePicture)} 
+                    alt={user.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm font-black text-primary">{userInitial}</span>
+                )}
               </div>
-              <span className="text-sm font-semibold text-text-primary hidden sm:block">Zainab R.</span>
+              <div className="hidden sm:block">
+                <p className="text-sm font-bold text-text-primary leading-none group-hover:text-primary transition-colors">
+                  {user?.name || 'Customer'}
+                </p>
+                <p className="text-[10px] font-black text-text-tertiary uppercase tracking-wider mt-0.5">
+                  Verified Client
+                </p>
+              </div>
             </Link>
           </div>
         </div>
@@ -148,7 +186,10 @@ export default function CustomerLayout({ children }) {
                 <Settings className="w-5 h-5 text-neutral-400" />
                 Settings
               </Link>
-              <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-error font-bold hover:bg-errorLight transition-colors mt-1">
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-error font-bold hover:bg-errorLight transition-colors mt-1"
+              >
                 <LogOut className="w-5 h-5" />
                 Log Out
               </button>

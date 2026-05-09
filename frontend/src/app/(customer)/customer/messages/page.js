@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Send, 
-  MoreVertical, 
-  Phone, 
-  Video, 
-  Image as ImageIcon, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Search,
+  Send,
+  MoreVertical,
+  Phone,
+  Video,
+  Image as ImageIcon,
   Paperclip,
   Smile,
   CheckCheck,
@@ -15,52 +15,52 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
-
-const DUMMY_CHATS = [
-  {
-    id: 1,
-    name: 'Ahmad Hassan',
-    role: 'Electrician',
-    avatar: '/profile_1.png',
-    lastMessage: 'I can come over at 4 PM today to check the wiring.',
-    time: '2m ago',
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 2,
-    name: 'Maria S.',
-    role: 'Deep Cleaning',
-    avatar: '/profile_2.png',
-    lastMessage: 'The quote for the full house cleaning is attached.',
-    time: '1h ago',
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 3,
-    name: 'Usman K.',
-    role: 'Plumber',
-    avatar: '',
-    lastMessage: 'Fixed! Please check the sink now.',
-    time: 'Yesterday',
-    unread: 0,
-    online: false,
-  }
-];
-
-const DUMMY_MESSAGES = [
-  { id: 1, senderId: 'worker', text: 'Hello Zainab! I saw your request for the ceiling fan installation.', time: '10:05 AM' },
-  { id: 2, senderId: 'me', text: 'Hi Ahmad! Yes, I need two fans installed in the bedrooms.', time: '10:07 AM' },
-  { id: 3, senderId: 'worker', text: 'I have experience with all major brands. Do you already have the fans or should I bring them?', time: '10:08 AM' },
-  { id: 4, senderId: 'me', text: 'I already bought them. Just need the installation and some basic testing of the switches.', time: '10:10 AM' },
-  { id: 5, senderId: 'worker', text: 'Perfect. I can come over at 4 PM today to check the wiring.', time: '10:12 AM' },
-];
+import * as api from '@/lib/api';
 
 export default function MessagesPage() {
-  const [activeChat, setActiveChat] = useState(DUMMY_CHATS[0]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConv, setActiveConv] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [showMobileList, setShowMobileMobileList] = useState(true);
+  const [myUserId, setMyUserId] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    api.getMe().then((data) => setMyUserId((data.user || data)._id)).catch(() => {});
+    api.getConversations()
+      .then((data) => {
+        const convs = data.conversations || [];
+        setConversations(convs);
+        if (convs.length > 0) setActiveConv(convs[0]);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!activeConv) return;
+    api.getMessages(activeConv._id)
+      .then((data) => setMessages(data.messages || []))
+      .catch(() => {});
+  }, [activeConv]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!message.trim() || !activeConv) return;
+    const text = message.trim();
+    setMessage('');
+    try {
+      const data = await api.sendMessage(activeConv._id, { content: text });
+      setMessages((prev) => [...prev, data.message || { _id: Date.now(), sender: { _id: myUserId }, content: text, createdAt: new Date() }]);
+    } catch {}
+  };
+
+  const getOtherParticipant = (conv) => {
+    return conv.participants?.find((p) => p._id !== myUserId) || conv.participants?.[0] || {};
+  };
 
   return (
     <div className="h-[calc(100vh-140px)] min-h-[600px] flex gap-6 animate-in fade-in duration-500">
@@ -82,51 +82,51 @@ export default function MessagesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {DUMMY_CHATS.map((chat) => (
-            <button
-              key={chat.id}
-              onClick={() => {
-                setActiveChat(chat);
-                setShowMobileMobileList(false);
-              }}
-              className={`
-                w-full p-4 flex gap-4 transition-all border-l-4
-                ${activeChat.id === chat.id 
-                  ? 'bg-primary-subtle border-primary' 
-                  : 'bg-white border-transparent hover:bg-neutral-50'}
-              `}
-            >
-              <div className="relative shrink-0">
-                <div className="w-12 h-12 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50">
-                  {chat.avatar ? (
-                    <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-primary-light text-primary font-black">
-                      {chat.name.charAt(0)}
-                    </div>
-                  )}
+          {conversations.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-tertiary">No conversations yet.</div>
+          ) : conversations.map((conv) => {
+            const other = getOtherParticipant(conv);
+            const lastMsg = conv.lastMessage;
+            return (
+              <button
+                key={conv._id}
+                onClick={() => {
+                  setActiveConv(conv);
+                  setShowMobileMobileList(false);
+                }}
+                className={`
+                  w-full p-4 flex gap-4 transition-all border-l-4
+                  ${activeConv?._id === conv._id
+                    ? 'bg-primary-subtle border-primary'
+                    : 'bg-white border-transparent hover:bg-neutral-50'}
+                `}
+              >
+                <div className="relative shrink-0">
+                  <div className="w-12 h-12 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50">
+                    {other.profilePicture ? (
+                      <img src={other.profilePicture} alt={other.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary-light text-primary font-black">
+                        {(other.name || 'U').charAt(0)}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {chat.online && (
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-white"></div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="font-black text-text-primary text-sm truncate">{chat.name}</h4>
-                  <span className="text-[10px] font-bold text-text-tertiary uppercase">{chat.time}</span>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-black text-text-primary text-sm truncate">{other.name || 'Unknown'}</h4>
+                    <span className="text-[10px] font-bold text-text-tertiary uppercase">
+                      {conv.updatedAt ? new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-secondary font-medium mb-1 uppercase tracking-widest">{other.serviceCategory || other.role || ''}</p>
+                  <p className="text-xs truncate font-medium text-text-tertiary">
+                    {lastMsg?.content || 'No messages yet'}
+                  </p>
                 </div>
-                <p className="text-xs text-text-secondary font-medium mb-1 uppercase tracking-widest">{chat.role}</p>
-                <p className={`text-xs truncate ${chat.unread > 0 ? 'font-black text-text-primary' : 'font-medium text-text-tertiary'}`}>
-                  {chat.lastMessage}
-                </p>
-              </div>
-              {chat.unread > 0 && (
-                <div className="w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0 self-center">
-                  {chat.unread}
-                </div>
-              )}
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </Card>
 
@@ -138,27 +138,34 @@ export default function MessagesPage() {
         {/* Chat Header */}
         <div className="p-4 md:p-6 border-b border-neutral-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => setShowMobileMobileList(true)}
               className="md:hidden p-2 hover:bg-neutral-100 rounded-xl transition-colors"
             >
               <ChevronLeft className="w-5 h-5 text-text-secondary" />
             </button>
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50 shrink-0">
-              {activeChat.avatar ? (
-                <img src={activeChat.avatar} alt={activeChat.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-primary-light text-primary font-black">
-                  {activeChat.name.charAt(0)}
-                </div>
-              )}
-            </div>
-            <div>
-              <h3 className="font-black text-text-primary leading-tight">{activeChat.name}</h3>
-              <p className="text-[10px] text-text-tertiary font-black uppercase tracking-widest mt-0.5">
-                {activeChat.role} • {activeChat.online ? 'Online' : 'Offline'}
-              </p>
-            </div>
+            {activeConv && (() => {
+              const other = getOtherParticipant(activeConv);
+              return (
+                <>
+                  <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50 shrink-0">
+                    {other.profilePicture ? (
+                      <img src={other.profilePicture} alt={other.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary-light text-primary font-black">
+                        {(other.name || 'U').charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-text-primary leading-tight">{other.name || 'Unknown'}</h3>
+                    <p className="text-[10px] text-text-tertiary font-black uppercase tracking-widest mt-0.5">
+                      {other.serviceCategory || other.role || 'User'}
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <button className="p-2.5 text-text-secondary hover:bg-neutral-100 rounded-xl transition-colors hidden sm:block">
@@ -181,22 +188,30 @@ export default function MessagesPage() {
             </span>
           </div>
 
-          {DUMMY_MESSAGES.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`
-                max-w-[80%] md:max-w-[70%] p-4 rounded-2xl shadow-sm
-                ${msg.senderId === 'me' 
-                  ? 'bg-primary text-white rounded-tr-none' 
-                  : 'bg-white border border-neutral-100 text-text-primary rounded-tl-none'}
-              `}>
-                <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
-                <div className={`flex items-center gap-1 mt-2 ${msg.senderId === 'me' ? 'justify-end text-primary-light' : 'justify-start text-text-tertiary'}`}>
-                  <span className="text-[9px] font-bold uppercase">{msg.time}</span>
-                  {msg.senderId === 'me' && <CheckCheck className="w-3 h-3" />}
+          {messages.length === 0 ? (
+            <div className="text-center text-sm text-text-tertiary py-12">No messages yet. Say hello!</div>
+          ) : messages.map((msg) => {
+            const isMe = msg.sender?._id === myUserId || msg.sender === myUserId;
+            return (
+              <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`
+                  max-w-[80%] md:max-w-[70%] p-4 rounded-2xl shadow-sm
+                  ${isMe
+                    ? 'bg-primary text-white rounded-tr-none'
+                    : 'bg-white border border-neutral-100 text-text-primary rounded-tl-none'}
+                `}>
+                  <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                  <div className={`flex items-center gap-1 mt-2 ${isMe ? 'justify-end text-primary-light' : 'justify-start text-text-tertiary'}`}>
+                    <span className="text-[9px] font-bold uppercase">
+                      {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                    {isMe && <CheckCheck className="w-3 h-3" />}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Chat Input */}
@@ -208,17 +223,22 @@ export default function MessagesPage() {
             </div>
             
             <div className="flex-1 bg-neutral-50 border border-border rounded-2xl px-4 py-3 flex items-center gap-3 focus-within:border-primary transition-all">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type your message..." 
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder="Type your message..."
                 className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-text-primary placeholder:text-text-tertiary"
               />
               <button className="text-text-tertiary hover:text-warning transition-colors"><Smile className="w-5 h-5" /></button>
             </div>
 
-            <button className="mb-1 p-3.5 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all">
+            <button
+              onClick={handleSend}
+              disabled={!message.trim()}
+              className="mb-1 p-3.5 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-50"
+            >
               <Send className="w-5 h-5" />
             </button>
           </div>

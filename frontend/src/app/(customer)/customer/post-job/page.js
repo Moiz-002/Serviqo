@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CATEGORIES, CITIES, BUDGET_RANGES, URGENCY_LEVELS } from '@/config/job-constants';
+import * as api from '@/lib/api';
 import FormField from '@/components/ui/FormField';
 import FileUpload from '@/components/ui/FileUpload';
 import Card from '@/components/ui/Card';
@@ -96,9 +97,23 @@ export default function PostJobPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setIsSubmitting(false);
-    router.push('/customer/success');
+    try {
+      const formData = new FormData();
+      formData.append('title', state.title);
+      formData.append('description', state.description);
+      formData.append('category', CATEGORIES.find(c => c.id === state.category)?.name || state.category);
+      formData.append('city', state.city);
+      formData.append('area', state.area);
+      formData.append('budgetRange', BUDGET_RANGES.find(b => b.id === state.budget)?.range || state.budget);
+      formData.append('urgency', state.urgency);
+      state.images.forEach((file) => formData.append('images', file));
+      await api.createJob(formData);
+      router.push('/customer/my-jobs');
+    } catch (err) {
+      console.error('Failed to post job:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFilesChange = (files) => {

@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Users, 
-  Briefcase, 
+import React, { useState, useEffect } from 'react';
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  Briefcase,
   Calendar,
   Download,
   Filter,
@@ -13,8 +13,19 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { DUMMY_ANALYTICS } from '@/config/admin-constants';
+import * as api from '@/lib/api';
 
 export default function AnalyticsPage() {
+  const [analytics, setAnalytics] = useState(null);
+
+  useEffect(() => {
+    api.getAdminAnalytics()
+      .then((data) => setAnalytics(data.analytics || data))
+      .catch(() => {});
+  }, []);
+
+  const stats = analytics || DUMMY_ANALYTICS;
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header Section */}
@@ -48,7 +59,7 @@ export default function AnalyticsPage() {
             </span>
           </div>
           <p className="text-sm font-medium text-neutral-500">New Signups</p>
-          <h3 className="text-2xl font-bold text-neutral-900 mt-1">1,240</h3>
+          <h3 className="text-2xl font-bold text-neutral-900 mt-1">{(stats.totalUsers || 0).toLocaleString()}</h3>
         </div>
         <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -57,11 +68,11 @@ export default function AnalyticsPage() {
             </div>
             <span className="flex items-center gap-1 text-xs font-bold text-accent">
               <ArrowUpRight className="w-3 h-3" />
-              8%
+              {stats.growthRate || '+8%'}
             </span>
           </div>
           <p className="text-sm font-medium text-neutral-500">Service Requests</p>
-          <h3 className="text-2xl font-bold text-neutral-900 mt-1">456</h3>
+          <h3 className="text-2xl font-bold text-neutral-900 mt-1">{stats.activeJobs || 0}</h3>
         </div>
         <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -73,8 +84,8 @@ export default function AnalyticsPage() {
               2%
             </span>
           </div>
-          <p className="text-sm font-medium text-neutral-500">Avg. Order Value</p>
-          <h3 className="text-2xl font-bold text-neutral-900 mt-1">3,450 <span className="text-sm font-normal text-neutral-400">PKR</span></h3>
+          <p className="text-sm font-medium text-neutral-500">Completed Jobs</p>
+          <h3 className="text-2xl font-bold text-neutral-900 mt-1">{stats.completedJobs || 0}</h3>
         </div>
         <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -86,8 +97,8 @@ export default function AnalyticsPage() {
               24%
             </span>
           </div>
-          <p className="text-sm font-medium text-neutral-500">Conversion Rate</p>
-          <h3 className="text-2xl font-bold text-neutral-900 mt-1">18.5%</h3>
+          <p className="text-sm font-medium text-neutral-500">Active Workers</p>
+          <h3 className="text-2xl font-bold text-neutral-900 mt-1">{stats.totalWorkers || 0}</h3>
         </div>
       </div>
 
@@ -96,7 +107,7 @@ export default function AnalyticsPage() {
         <div className="bg-white p-8 rounded-[40px] border border-neutral-200 shadow-sm">
           <h2 className="text-xl font-bold text-neutral-900 mb-6">User Growth Trend</h2>
           <div className="aspect-[16/9] bg-neutral-50 rounded-3xl border border-neutral-100 flex items-end justify-between p-8 gap-4">
-            {DUMMY_ANALYTICS.userGrowth.map((val, i) => (
+            {(stats.userGrowth || DUMMY_ANALYTICS.userGrowth).map((val, i) => (
               <div key={i} className="flex-1 bg-navy-600 rounded-t-xl relative group transition-all hover:bg-navy-700" style={{ height: `${(val / 400) * 100}%` }}>
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                   {val}

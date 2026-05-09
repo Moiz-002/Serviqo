@@ -1,21 +1,21 @@
 'use client';
 
-import React from 'react';
-import { 
-  PlusCircle, 
-  Briefcase, 
-  MessageSquare, 
-  Clock, 
-  Star, 
+import React, { useState, useEffect } from 'react';
+import {
+  PlusCircle,
+  Briefcase,
+  MessageSquare,
+  Clock,
+  Star,
   ChevronRight,
   TrendingUp,
   MapPin,
   CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
-import { DUMMY_JOBS } from '@/config/job-constants';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import * as api from '@/lib/api';
 
 const StatCard = ({ icon: Icon, label, value, colorClass }) => (
   <Card className="p-6 border-neutral-200/60 shadow-sm hover:shadow-md transition-shadow">
@@ -32,13 +32,31 @@ const StatCard = ({ icon: Icon, label, value, colorClass }) => (
 );
 
 export default function CustomerDashboard() {
+  const [user, setUser] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [stats, setStats] = useState({ active: 0, completed: 0 });
+
+  useEffect(() => {
+    api.getMe().then((data) => setUser(data.user || data)).catch(() => {});
+    api.getJobs().then((data) => {
+      const all = data.jobs || [];
+      setJobs(all);
+      setStats({
+        active: all.filter((j) => j.status === 'active').length,
+        completed: all.filter((j) => j.status === 'completed').length,
+      });
+    }).catch(() => {});
+  }, []);
+
+  const firstName = user?.name?.split(' ')[0] || 'there';
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-text-primary tracking-tight">
-            Hello, Zainab! 👋
+            Hello, {firstName}! 👋
           </h1>
           <p className="text-text-secondary mt-1 font-medium text-lg">
             Find the best professionals for your home projects today.
@@ -54,28 +72,28 @@ export default function CustomerDashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          icon={Briefcase} 
-          label="Active Jobs" 
-          value="2" 
+        <StatCard
+          icon={Briefcase}
+          label="Active Jobs"
+          value={stats.active}
           colorClass="bg-primary-subtle text-primary"
         />
-        <StatCard 
-          icon={CheckCircle2} 
-          label="Completed" 
-          value="14" 
+        <StatCard
+          icon={CheckCircle2}
+          label="Completed"
+          value={stats.completed}
           colorClass="bg-success-light text-success"
         />
-        <StatCard 
-          icon={MessageSquare} 
-          label="Messages" 
-          value="5 New" 
+        <StatCard
+          icon={MessageSquare}
+          label="Messages"
+          value="—"
           colorClass="bg-info-light text-info"
         />
-        <StatCard 
-          icon={Star} 
-          label="Total Spent" 
-          value="45k" 
+        <StatCard
+          icon={Star}
+          label="Total Jobs"
+          value={jobs.length}
           colorClass="bg-warning-light text-warning"
         />
       </div>
@@ -91,26 +109,26 @@ export default function CustomerDashboard() {
               </Link>
             </div>
             <div className="divide-y divide-neutral-100">
-              {DUMMY_JOBS.slice(0, 3).map((job) => (
-                <div key={job.id} className="p-6 hover:bg-neutral-50 transition-colors flex items-center justify-between group">
+              {jobs.slice(0, 3).map((job) => (
+                <div key={job._id || job.id} className="p-6 hover:bg-neutral-50 transition-colors flex items-center justify-between group">
                   <div className="flex items-center gap-5">
                     <div className="w-14 h-14 rounded-2xl bg-neutral-100 flex items-center justify-center text-2xl group-hover:bg-primary-subtle transition-colors">
-                      {job.id === 'job_001' ? '⚡' : job.id === 'job_002' ? '🔧' : '🧹'}
+                      🔧
                     </div>
                     <div>
                       <h4 className="font-black text-text-primary text-lg group-hover:text-primary transition-colors">{job.title}</h4>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-text-tertiary font-bold flex items-center gap-1 uppercase tracking-wider">
-                          <MapPin className="w-3 h-3 text-accent" /> {job.location.city}
+                          <MapPin className="w-3 h-3 text-accent" /> {job.location?.city || job.location}
                         </span>
                         <span className="text-xs text-neutral-300">•</span>
                         <span className="text-xs font-black uppercase text-accent tracking-widest">
-                          {job.proposalsCount} Bids received
+                          {job.bids?.length || job.proposalsCount || 0} Bids received
                         </span>
                       </div>
                     </div>
                   </div>
-                  <Link href={`/customer/job/${job.id}`} className="p-3 hover:bg-white rounded-xl border border-transparent hover:border-neutral-200 transition-all shadow-sm">
+                  <Link href={`/customer/job/${job._id || job.id}`} className="p-3 hover:bg-white rounded-xl border border-transparent hover:border-neutral-200 transition-all shadow-sm">
                     <ChevronRight className="w-5 h-5 text-text-tertiary group-hover:text-primary" />
                   </Link>
                 </div>
@@ -123,7 +141,7 @@ export default function CustomerDashboard() {
             <div className="absolute top-0 right-0 w-80 h-80 bg-accent/10 rounded-full -mr-40 -mt-40 blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/20 rounded-full -ml-32 -mb-32 blur-3xl"></div>
             <div className="relative z-10">
-              <h3 className="text-2xl md:text-3xl font-black mb-6 tracking-tight">How to hire the best?</h3>
+              <h3 className="!text-white text-2xl md:text-3xl font-black mb-6 tracking-tight">How to hire the best?</h3>
               <ul className="space-y-6">
                 <li className="flex gap-5">
                   <div className="w-8 h-8 rounded-xl bg-accent text-navy-900 flex items-center justify-center text-sm font-black shrink-0 shadow-lg shadow-accent/20">1</div>

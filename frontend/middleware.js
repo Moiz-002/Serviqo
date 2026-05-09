@@ -11,53 +11,79 @@ export function middleware(request) {
     userRole = role;
   }
 
-  // If unauthenticated and visiting a protected route
+  // 1. If UN-AUTHENTICATED
   if (!sessionCookie) {
     // Worker profile pages are public — allow access
     if (pathname.startsWith('/workers/')) {
       return NextResponse.next();
     }
 
-    // Protect customer/worker/admin dashboards
+    // Protect customer/worker dashboards -> redirect to /login
     if (
       pathname.startsWith('/customer/') ||
       pathname.startsWith('/worker/') ||
-      pathname.startsWith('/admin/')
+      pathname === '/onboarding'
     ) {
-      // Store intended URL in cookie
       const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.set('intendedUrl', pathname, { maxAge: 60 * 60 }); // 1 hour
+      response.cookies.set('intendedUrl', pathname, { maxAge: 60 * 60 });
       return response;
     }
 
-    // Protect onboarding flow for workers
-    if (pathname === '/onboarding') {
-      return NextResponse.redirect(new URL('/signup', request.url));
+    // Protect admin dashboard -> redirect to /admin/login
+    if (pathname.startsWith('/admin/') && pathname !== '/admin/login') {
+      const response = NextResponse.redirect(new URL('/admin/login', request.url));
+      response.cookies.set('intendedUrl', pathname, { maxAge: 60 * 60 });
+      return response;
     }
   }
 
-  // If authenticated, handle role-based redirects
+  // 2. If AUTHENTICATED
   if (sessionCookie) {
     // Authenticated users shouldn't see auth pages
-    if (pathname === '/login' || pathname === '/signup' || pathname === '/verify') {
+    const authPages = [
+      '/login',
+      '/signup',
+      '/verify',
+      '/forgot-password',
+      '/reset-password',
+      '/login-otp',
+      '/admin/login',
+    ];
+    
+    if (authPages.includes(pathname)) {
       const dashboard =
-        userRole === 'customer' ? '/customer/dashboard' : '/worker/dashboard';
+        userRole === 'admin' 
+          ? '/admin/dashboard' 
+          : userRole === 'worker' 
+            ? '/worker/dashboard' 
+            : '/customer/dashboard';
+      return NextResponse.redirect(new URL(dashboard, request.url));
+    }
+
+    // Role-based route protection
+    
+    // Protect onboarding flow — only for workers
+    if (pathname === '/onboarding' && userRole !== 'worker') {
+      const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/customer/dashboard';
       return NextResponse.redirect(new URL(dashboard, request.url));
     }
 
     // Protect admin routes — only admins can access
     if (pathname.startsWith('/admin/') && userRole !== 'admin') {
-      return NextResponse.redirect(new URL('/customer/dashboard', request.url));
+      const dashboard = userRole === 'worker' ? '/worker/dashboard' : '/customer/dashboard';
+      return NextResponse.redirect(new URL(dashboard, request.url));
     }
 
-    // After login, check for intended URL
-    if (pathname === '/login') {
-      const intendedUrl = request.cookies.get('intendedUrl')?.value;
-      if (intendedUrl) {
-        const response = NextResponse.redirect(new URL(intendedUrl, request.url));
-        response.cookies.delete('intendedUrl');
-        return response;
-      }
+    // Protect worker routes — only workers can access
+    if (pathname.startsWith('/worker/') && userRole !== 'worker') {
+      const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/customer/dashboard';
+      return NextResponse.redirect(new URL(dashboard, request.url));
+    }
+
+    // Protect customer routes — only customers can access
+    if (pathname.startsWith('/customer/') && userRole !== 'customer') {
+      const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/worker/dashboard';
+      return NextResponse.redirect(new URL(dashboard, request.url));
     }
   }
 

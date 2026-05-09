@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   User, 
@@ -18,6 +18,7 @@ import {
   Search
 } from 'lucide-react';
 import { colors } from '@/config/color-system';
+import * as api from '@/lib/api';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/worker/dashboard' },
@@ -31,6 +32,17 @@ const menuItems = [
 export default function WorkerLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
@@ -103,7 +115,10 @@ export default function WorkerLayout({ children }) {
               <Settings className="w-5 h-5 text-neutral-400" />
               Settings
             </Link>
-            <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-error hover:bg-errorLight transition-colors mt-1">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-error hover:bg-errorLight transition-colors mt-1"
+            >
               <LogOut className="w-5 h-5" />
               Log Out
             </button>

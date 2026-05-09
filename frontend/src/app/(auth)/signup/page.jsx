@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useReducer } from 'react';
+import { useState, useReducer, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import * as api from '@/lib/api';
 import {
   User,
   Mail,
@@ -16,10 +17,13 @@ import {
   CheckCircle,
   ArrowRight,
   ArrowLeft,
+  ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { StepIndicator } from '@/components/auth/StepIndicator';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
+import { OtpInput } from '@/components/auth/OtpInput';
 import Button from '@/components/ui/Button';
 
 const initialState = {
@@ -36,6 +40,9 @@ const initialState = {
   isLoading: false,
   showPassword: false,
   showConfirmPassword: false,
+  userId: null,
+  timeLeft: 59,
+  showResend: false,
 };
 
 const signupReducer = (state, action) => {
@@ -50,6 +57,10 @@ const signupReducer = (state, action) => {
       return { ...state, step: action.step, errors: {} };
     case 'SET_LOADING':
       return { ...state, isLoading: action.value };
+    case 'SET_TIME_LEFT':
+      return { ...state, timeLeft: action.value };
+    case 'SET_SHOW_RESEND':
+      return { ...state, showResend: action.value };
     case 'RESET':
       return initialState;
     default:
@@ -112,17 +123,6 @@ const validateStep3 = (state) => {
   return errors;
 };
 
-const validateStep4Worker = (state) => {
-  const errors = {};
-  if (!state.cnicFront) {
-    errors.cnicFront = 'Front side of CNIC is required';
-  }
-  if (!state.cnicBack) {
-    errors.cnicBack = 'Back side of CNIC is required';
-  }
-  return errors;
-};
-
 export default function SignupPage() {
   const router = useRouter();
   const [state, dispatch] = useReducer(signupReducer, initialState);
@@ -132,17 +132,53 @@ export default function SignupPage() {
     dispatch({ type: 'SET_ERROR', field, error: null });
   };
 
-  const handleNext = () => {
+  useEffect(() => {
+    if (state.step === 4) {
+      if (state.timeLeft <= 0) {
+        dispatch({ type: 'SET_SHOW_RESEND', value: true });
+        return;
+      }
+      const timer = setInterval(() => {
+        dispatch({ type: 'SET_TIME_LEFT', value: state.timeLeft - 1 });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [state.step, state.timeLeft]);
+
+  const handleNext = async () => {
     let errors = {};
 
     if (state.step === 1) {
       errors = validateStep1(state);
+      if (Object.keys(errors).length === 0) {
+        dispatch({ type: 'SET_LOADING', value: true });
+        try {
+          const { phoneAvailable, emailAvailable } = await api.checkAvailability({
+            phone: '+92' + state.phone,
+            email: state.email || undefined,
+          });
+
+          if (!phoneAvailable) {
+            errors.phone = 'This phone number is already registered';
+          }
+          if (!emailAvailable) {
+            errors.email = 'This email address is already registered';
+          }
+        } catch (err) {
+          dispatch({ type: 'SET_ERROR', field: 'general', error: 'Failed to check availability. Please try again.' });
+          dispatch({ type: 'SET_LOADING', value: false });
+          return;
+        }
+        dispatch({ type: 'SET_LOADING', value: false });
+      }
     } else if (state.step === 2) {
       errors = validateStep2(state);
     } else if (state.step === 3) {
       errors = validateStep3(state);
-    } else if (state.step === 4 && state.role === 'worker') {
-      errors = validateStep4Worker(state);
+      if (Object.keys(errors).length === 0) {
+        handleSubmit();
+        return;
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -152,41 +188,118 @@ export default function SignupPage() {
       return;
     }
 
-    if (state.step < 4) {
+    if (state.step < 3) {
       dispatch({ type: 'SET_STEP', step: state.step + 1 });
-    } else {
-      handleSubmit();
     }
   };
 
   const handleBack = () => {
-    if (state.step > 1) {
+    if (state.step > 1 && state.step < 4) {
       dispatch({ type: 'SET_STEP', step: state.step - 1 });
     }
   };
 
   const handleSubmit = async () => {
     dispatch({ type: 'SET_LOADING', value: true });
+    try {
+      const data = await api.signup({
+        name: state.fullName,
+        phone: '+92' + state.phone,
+        email: state.email || undefined,
+        role: state.role,
+        password: state.password,
+      });
+      dispatch({ type: 'SET_FIELD', field: 'userId', value: data.userId });
+      localStorage.setItem('pendingUserId', data.userId);
+      localStorage.setItem('pendingPhone', '+92' + state.phone);
+      if (data.otp) {
+        console.log('DEV OTP:', data.otp);
+        localStorage.setItem('devOtp', data.otp);
+      }
+      
+      // Handle CNIC if worker (though redirecting to onboarding soon)
+      if (state.role === 'worker' && (state.cnicFront?.preview || state.cnicBack?.preview)) {
+        try {
+          sessionStorage.setItem('pendingCnic', JSON.stringify({
+            front: state.cnicFront?.preview || null,
+            back: state.cnicBack?.preview || null,
+          }));
+        } catch {}
+      }
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    dispatch({ type: 'SET_LOADING', value: false });
-
-    // Redirect to dashboard or next step
-    router.push('/dashboard');
+      dispatch({ type: 'SET_LOADING', value: false });
+      dispatch({ type: 'SET_STEP', step: 4 });
+    } catch (err) {
+      dispatch({ type: 'SET_ERROR', field: 'general', error: err.message });
+      dispatch({ type: 'SET_LOADING', value: false });
+    }
   };
 
-  const handleFileUpload = (field, file) => {
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        handleFieldChange(field, {
-          file,
-          preview: e.target.result,
-        });
-      };
-      reader.readAsDataURL(file);
+  const handleOtpComplete = async (otp) => {
+    dispatch({ type: 'SET_LOADING', value: true });
+    dispatch({ type: 'SET_ERROR', field: 'otp', error: null });
+
+    const userId = state.userId || localStorage.getItem('pendingUserId');
+    if (!userId) {
+      dispatch({ type: 'SET_ERROR', field: 'otp', error: 'Session expired. Please start again.' });
+      dispatch({ type: 'SET_LOADING', value: false });
+      return;
+    }
+
+    try {
+      const data = await api.verifyOtp({ userId, otp });
+      localStorage.removeItem('pendingUserId');
+      localStorage.removeItem('pendingPhone');
+      localStorage.removeItem('devOtp');
+
+      const role = data.user?.role || state.role;
+      
+      // Upload CNIC if available and role is worker
+      if (role === 'worker') {
+        try {
+          const cnicRaw = sessionStorage.getItem('pendingCnic');
+          if (cnicRaw) {
+            sessionStorage.removeItem('pendingCnic');
+            const cnicData = JSON.parse(cnicRaw);
+            const fd = new FormData();
+            if (cnicData.front) {
+              const blob = await fetch(cnicData.front).then((r) => r.blob());
+              fd.append('cnicFront', blob, 'cnic-front.jpg');
+            }
+            if (cnicData.back) {
+              const blob = await fetch(cnicData.back).then((r) => r.blob());
+              fd.append('cnicBack', blob, 'cnic-back.jpg');
+            }
+            if (fd.has('cnicFront') || fd.has('cnicBack')) {
+              await api.uploadCnic(fd);
+            }
+          }
+        } catch (e) {
+          console.error('CNIC upload failed:', e);
+        }
+        router.push('/onboarding');
+      } else {
+        router.push('/customer/dashboard');
+      }
+    } catch (err) {
+      dispatch({ type: 'SET_ERROR', field: 'otp', error: err.message || 'Invalid code.' });
+      dispatch({ type: 'SET_LOADING', value: false });
+    }
+  };
+
+  const handleResendOtp = async () => {
+    dispatch({ type: 'SET_TIME_LEFT', value: 59 });
+    dispatch({ type: 'SET_SHOW_RESEND', value: false });
+    const userId = state.userId || localStorage.getItem('pendingUserId');
+    if (!userId) return;
+    try {
+      const data = await api.resendOtp({ userId });
+      if (data.otp) {
+        console.log('DEV OTP:', data.otp);
+        localStorage.setItem('devOtp', data.otp);
+      }
+    } catch (err) {
+      console.error('Resend OTP error:', err.message);
     }
   };
 
@@ -204,42 +317,54 @@ export default function SignupPage() {
         {/* Step 3: Security */}
         {state.step === 3 && <Step3 state={state} handleFieldChange={handleFieldChange} />}
 
-        {/* Step 4: Verification or Success */}
-        {state.step === 4 && state.role === 'worker' && (
-          <Step4Worker state={state} handleFieldChange={handleFileUpload} />
+        {/* Step 4: Verification */}
+        {state.step === 4 && (
+          <StepVerify 
+            state={state} 
+            handleOtpComplete={handleOtpComplete} 
+            handleResend={handleResendOtp}
+          />
         )}
-        {state.step === 4 && state.role === 'customer' && <SuccessScreen />}
+
+        {state.errors.general && (
+          <div className="mt-4 p-4 bg-error-light border border-error/20 rounded-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-error shrink-0" />
+            <p className="text-sm text-error font-medium">{state.errors.general}</p>
+          </div>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3 mt-8 justify-center">
-          {state.step > 1 && (
+        {state.step < 4 && (
+          <div className="flex gap-3 mt-8 justify-center">
+            {state.step > 1 && (
+              <Button
+                variant="outline"
+                size="md"
+                disabled={state.isLoading}
+                onClick={handleBack}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+            )}
             <Button
-              variant="outline"
+              variant="primary"
               size="md"
               disabled={state.isLoading}
-              onClick={handleBack}
+              isLoading={state.isLoading}
+              onClick={handleNext}
               className="flex items-center gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Back
+              {!state.isLoading && (
+                <>
+                  {state.step === 3 ? 'Create Account' : 'Continue'}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
-          )}
-          <Button
-            variant="primary"
-            size="md"
-            disabled={state.isLoading}
-            isLoading={state.isLoading}
-            onClick={handleNext}
-            className="flex items-center gap-2"
-          >
-            {!state.isLoading && (
-              <>
-                {state.step === 4 ? 'Submit' : 'Continue'}
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
-        </div>
+          </div>
+        )}
 
         {/* Trust Badges */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8 pt-8 border-t border-border">
@@ -256,6 +381,60 @@ export default function SignupPage() {
     </AuthShell>
   );
 }
+
+// ============================================================================
+// STEP 4: VERIFY (OTP)
+// ============================================================================
+const StepVerify = ({ state, handleOtpComplete, handleResend }) => {
+  const maskedPhone = state.phone ? `+92 ${state.phone.slice(0, 3)} ****${state.phone.slice(-3)}` : 'your number';
+
+  return (
+    <div className="bg-surface rounded-2xl shadow-sm p-8 border border-border space-y-6 animate-fade-up text-center">
+      <div className="flex justify-center">
+        <div className="w-16 h-16 rounded-full bg-primary-subtle flex items-center justify-center">
+          <ShieldCheck className="w-8 h-8 text-primary" strokeWidth={1.5} />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold text-text-primary">Verify Your Phone</h2>
+        <p className="text-sm text-text-secondary">We've sent a 6-digit code to</p>
+        <p className="text-sm font-semibold text-text-brand">{maskedPhone}</p>
+      </div>
+
+      {state.errors.otp && (
+        <div className="p-4 bg-error-light border border-error rounded-lg flex items-center gap-3 text-left">
+          <AlertCircle className="w-5 h-5 text-error flex-shrink-0" />
+          <p className="text-sm text-error">{state.errors.otp}</p>
+        </div>
+      )}
+
+      <OtpInput length={6} onComplete={handleOtpComplete} isError={!!state.errors.otp} />
+
+      <div className="space-y-4 pt-2">
+        {!state.showResend ? (
+          <p className="text-sm text-text-secondary flex items-center justify-center gap-1">
+            <RotateCcw className="w-4 h-4" />
+            Resend code in {String(state.timeLeft).padStart(2, '0')}s
+          </p>
+        ) : (
+          <button
+            onClick={handleResend}
+            className="flex items-center justify-center gap-1.5 text-text-accent hover:text-accent font-semibold transition-colors w-full"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Resend Verification Code
+          </button>
+        )}
+      </div>
+
+      <p className="text-xs text-text-secondary border-t border-border pt-4">
+        Didn't receive a code? Check your SMS or contact support.
+      </p>
+    </div>
+  );
+};
+
 
 // ============================================================================
 // STEP 1: PROFILE

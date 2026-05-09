@@ -1,28 +1,53 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  UserPlus, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Search,
+  Filter,
+  MoreVertical,
+  UserPlus,
   ArrowUpDown,
   CheckCircle2,
   XCircle,
   AlertCircle
 } from 'lucide-react';
-import { DUMMY_USERS } from '@/config/admin-constants';
+import * as api from '@/lib/api';
 
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredUsers = DUMMY_USERS.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const fetchUsers = useCallback(() => {
+    setIsLoading(true);
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (roleFilter !== 'all') params.set('role', roleFilter);
+    api.getAdminUsers(params.toString())
+      .then((data) => {
+        setUsers(data.users || []);
+        setTotal(data.total || (data.users || []).length);
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [searchTerm, roleFilter]);
+
+  useEffect(() => {
+    const t = setTimeout(fetchUsers, 300);
+    return () => clearTimeout(t);
+  }, [fetchUsers]);
+
+  const handleStatusToggle = async (user) => {
+    const newStatus = user.status === 'active' ? 'suspended' : 'active';
+    try {
+      await api.updateUserStatus(user._id || user.id, { status: newStatus });
+      setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
+    } catch {}
+  };
+
+  const filteredUsers = users;
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -89,16 +114,20 @@ export default function UserManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="group hover:bg-neutral-50/50 transition-colors">
+              {isLoading ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-neutral-400">Loading users…</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-neutral-400">No users found.</td></tr>
+              ) : filteredUsers.map((user) => (
+                <tr key={user._id || user.id} className="group hover:bg-neutral-50/50 transition-colors">
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center font-bold text-neutral-600 border border-neutral-200">
-                        {user.name.charAt(0)}
+                        {(user.name || '?').charAt(0)}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-neutral-900">{user.name}</p>
-                        <p className="text-xs text-neutral-500">{user.email}</p>
+                        <p className="text-xs text-neutral-500">{user.email || user.phone}</p>
                       </div>
                     </div>
                   </td>
@@ -110,27 +139,25 @@ export default function UserManagementPage() {
                     </span>
                   </td>
                   <td className="px-6 py-5">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(user.status)}`}>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(user.status || 'active')}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${
-                        user.status === 'active' ? 'bg-cyan-600' : 
+                        user.status === 'active' || !user.status ? 'bg-cyan-600' :
                         user.status === 'suspended' ? 'bg-error' : 'bg-warning'
                       }`}></div>
-                      {user.status.toUpperCase()}
+                      {(user.status || 'active').toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-5 text-sm text-neutral-500">
-                    {user.joinedAt}
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : user.joinedAt || '—'}
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-neutral-400 hover:text-navy-600 transition-colors" title="Edit User">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </button>
-                      <button className="p-2 text-neutral-400 hover:text-error transition-colors" title="Suspend User">
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                      <button className="p-2 text-neutral-400 hover:text-neutral-900 transition-colors">
-                        <MoreVertical className="w-5 h-5" />
+                      <button
+                        onClick={() => handleStatusToggle(user)}
+                        className="p-2 text-neutral-400 hover:text-navy-600 transition-colors"
+                        title={user.status === 'suspended' ? 'Activate User' : 'Suspend User'}
+                      >
+                        {user.status === 'suspended' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       </button>
                     </div>
                   </td>
@@ -142,7 +169,7 @@ export default function UserManagementPage() {
         
         {/* Pagination placeholder */}
         <div className="px-6 py-4 bg-neutral-50/50 border-t border-neutral-200 flex items-center justify-between">
-          <p className="text-sm text-neutral-500">Showing {filteredUsers.length} of {DUMMY_USERS.length} users</p>
+          <p className="text-sm text-neutral-500">Showing {filteredUsers.length} of {total} users</p>
           <div className="flex gap-2">
             <button className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">Previous</button>
             <button className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50">Next</button>

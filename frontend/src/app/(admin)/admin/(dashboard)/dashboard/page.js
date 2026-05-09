@@ -1,16 +1,16 @@
 'use client';
 
-import React from 'react';
-import { 
-  Users, 
-  ShieldCheck, 
-  Briefcase, 
+import React, { useState, useEffect } from 'react';
+import {
+  Users,
+  ShieldCheck,
+  Briefcase,
   TrendingUp,
-  Clock,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import { DUMMY_ANALYTICS, DUMMY_PLATFORM_ACTIVITY } from '@/config/admin-constants';
+import * as api from '@/lib/api';
 
 const StatsCard = ({ title, value, change, icon: Icon, colorClass }) => (
   <div className="bg-white p-6 rounded-[24px] border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
@@ -35,40 +35,68 @@ const StatsCard = ({ title, value, change, icon: Icon, colorClass }) => (
 );
 
 export default function AdminDashboardPage() {
+  const [analytics, setAnalytics] = useState(null);
+  const [recentJobs, setRecentJobs] = useState(DUMMY_PLATFORM_ACTIVITY);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    api.getAdminAnalytics().then((data) => {
+      setAnalytics(data.analytics || data);
+    }).catch(() => {});
+
+    api.getPendingVerifications().then((data) => {
+      setPendingCount(data.workers?.length || 0);
+    }).catch(() => {});
+
+    api.getAdminJobs().then((data) => {
+      const jobs = data.jobs || [];
+      if (jobs.length > 0) {
+        setRecentJobs(jobs.slice(0, 3).map((j) => ({
+          id: j._id,
+          title: j.title,
+          customer: j.customer?.name || 'Unknown',
+          worker: j.assignedWorker?.name || 'Pending',
+          status: j.status === 'active' ? 'in_progress' : j.status,
+          budget: j.budgetRange,
+        })));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const stats = analytics || DUMMY_ANALYTICS;
+
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header Section */}
       <div>
         <h1 className="text-3xl font-bold text-neutral-900">Dashboard Overview</h1>
         <p className="text-neutral-500 mt-2">Welcome back, Admin. Here's what's happening on Serviqo today.</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard 
-          title="Total Users" 
-          value={DUMMY_ANALYTICS.totalUsers.toLocaleString()} 
-          change={DUMMY_ANALYTICS.growthRate}
+        <StatsCard
+          title="Total Users"
+          value={(stats.totalUsers || 0).toLocaleString()}
+          change={stats.growthRate || DUMMY_ANALYTICS.growthRate}
           icon={Users}
           colorClass="bg-navy-50 text-navy-600"
         />
-        <StatsCard 
-          title="Active Workers" 
-          value={DUMMY_ANALYTICS.totalWorkers.toLocaleString()} 
+        <StatsCard
+          title="Active Workers"
+          value={(stats.totalWorkers || 0).toLocaleString()}
           change="+8.2%"
           icon={ShieldCheck}
           colorClass="bg-cyan-50 text-cyan-600"
         />
-        <StatsCard 
-          title="Active Jobs" 
-          value={DUMMY_ANALYTICS.activeJobs} 
+        <StatsCard
+          title="Active Jobs"
+          value={stats.activeJobs || 0}
           change="+15.4%"
           icon={Briefcase}
           colorClass="bg-accent-light text-accent"
         />
-        <StatsCard 
-          title="Total Revenue" 
-          value={DUMMY_ANALYTICS.totalRevenue} 
+        <StatsCard
+          title="Completed Jobs"
+          value={stats.completedJobs || 0}
           change="+22.1%"
           icon={TrendingUp}
           colorClass="bg-navy-900 text-white"
@@ -76,12 +104,10 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Activity Section */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-neutral-900">Recent Platform Activity</h2>
-              <button className="text-sm font-semibold text-navy-600 hover:text-navy-700">View all</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -91,25 +117,25 @@ export default function AdminDashboardPage() {
                     <th className="pb-4">Customer</th>
                     <th className="pb-4">Worker</th>
                     <th className="pb-4">Status</th>
-                    <th className="pb-4">Amount</th>
+                    <th className="pb-4">Budget</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-50">
-                  {DUMMY_PLATFORM_ACTIVITY.map((job) => (
+                  {recentJobs.map((job) => (
                     <tr key={job.id} className="group hover:bg-neutral-50/50 transition-colors">
                       <td className="py-4">
                         <p className="text-sm font-semibold text-neutral-900">{job.title}</p>
-                        <p className="text-xs text-neutral-400">ID: {job.id}</p>
+                        <p className="text-xs text-neutral-400">ID: {String(job.id).slice(-6)}</p>
                       </td>
                       <td className="py-4 text-sm text-neutral-600">{job.customer}</td>
                       <td className="py-4 text-sm text-neutral-600">{job.worker}</td>
                       <td className="py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           job.status === 'completed' ? 'bg-cyan-50 text-cyan-700' :
-                          job.status === 'in_progress' ? 'bg-primary-subtle text-primary' :
+                          job.status === 'in_progress' || job.status === 'active' ? 'bg-primary-subtle text-primary' :
                           'bg-warning-light text-warning'
                         }`}>
-                          {job.status.replace('_', ' ')}
+                          {String(job.status).replace('_', ' ')}
                         </span>
                       </td>
                       <td className="py-4 text-sm font-bold text-neutral-900">{job.budget}</td>
@@ -121,7 +147,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* System Health / Quick Actions */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm">
             <h2 className="text-xl font-bold text-neutral-900 mb-6">System Status</h2>
@@ -140,22 +165,17 @@ export default function AdminDashboardPage() {
                 </div>
                 <span className="text-xs font-bold text-cyan-600">OPERATIONAL</span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-warning-light/50 border border-warning-light">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-warning" />
-                  <span className="text-sm font-medium text-neutral-900">Media Storage</span>
-                </div>
-                <span className="text-xs font-bold text-warning">SLOW</span>
-              </div>
             </div>
           </div>
 
           <div className="bg-navy-900 p-6 rounded-[32px] text-white">
             <h2 className="text-lg font-bold mb-4">Pending Verifications</h2>
-            <p className="text-navy-100 text-sm mb-6">There are 12 new worker verification requests waiting for your review.</p>
-            <button className="w-full py-3 bg-white text-navy-900 font-bold rounded-2xl hover:bg-navy-50 transition-colors">
+            <p className="text-navy-100 text-sm mb-6">
+              There are {pendingCount} worker verification requests waiting for your review.
+            </p>
+            <a href="/admin/verification" className="block w-full py-3 bg-white text-navy-900 font-bold rounded-2xl hover:bg-navy-50 transition-colors text-center">
               Review Now
-            </button>
+            </a>
           </div>
         </div>
       </div>

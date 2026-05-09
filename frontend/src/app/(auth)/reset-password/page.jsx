@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import Link from 'next/link';
+import * as api from '@/lib/api';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +21,10 @@ export default function ResetPasswordPage() {
 
   const validateForm = () => {
     const newErrors = {};
+
+    if (!otp || otp.length !== 6) {
+      newErrors.otp = 'Enter the 6-digit OTP sent to your phone/email';
+    }
 
     if (!password) {
       newErrors.password = 'Password is required';
@@ -48,19 +54,30 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
     setErrors({});
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const userId = localStorage.getItem('resetUserId');
+    if (!userId) {
+      setErrors({ general: 'Session expired. Please request a new OTP.' });
+      setIsLoading(false);
+      return;
+    }
 
-    setIsLoading(false);
-    setIsSuccess(true);
+    try {
+      await api.resetPassword({ userId, otp, newPassword: password });
+      localStorage.removeItem('resetUserId');
+      localStorage.removeItem('devResetOtp');
+      setIsLoading(false);
+      setIsSuccess(true);
+    } catch (err) {
+      setErrors({ general: err.message || 'Failed to reset password' });
+      setIsLoading(false);
+    }
   };
 
   const handleFieldChange = (field, value) => {
+    if (field === 'otp') setOtp(value);
     if (field === 'password') setPassword(value);
     if (field === 'confirmPassword') setConfirmPassword(value);
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: null });
-    }
+    if (errors[field]) setErrors({ ...errors, [field]: null });
   };
 
   return (
@@ -69,16 +86,49 @@ export default function ResetPasswordPage() {
         <div className="bg-surface rounded-2xl shadow-md p-9 border border-border space-y-6 animate-fade-up">
           {!isSuccess ? (
             <>
-              {/* Title */}
               <div>
                 <h2 className="text-2xl font-bold text-text-primary">Set New Password</h2>
                 <p className="text-sm text-text-secondary mt-1">
-                  Create a strong password to secure your account.
+                  Enter the OTP sent to your phone/email and choose a new password.
                 </p>
               </div>
 
-              {/* Form */}
+              {errors.general && (
+                <div className="p-3 bg-error-light border border-error rounded-lg text-sm text-error">
+                  {errors.general}
+                </div>
+              )}
+
               <form onSubmit={handleReset} className="space-y-4">
+                {/* OTP Field */}
+                <div className="space-y-2">
+                  <label htmlFor="otp" className="block text-sm font-medium text-text-primary">
+                    Verification OTP
+                  </label>
+                  <div className="relative">
+                    <ShieldCheck className="absolute left-3 top-3.5 w-5 h-5 text-text-tertiary" />
+                    <input
+                      id="otp"
+                      type="text"
+                      maxLength={6}
+                      placeholder="Enter 6-digit OTP"
+                      value={otp}
+                      onChange={(e) => handleFieldChange('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border transition-all ${
+                        errors.otp
+                          ? 'border-error bg-error-light text-error'
+                          : 'border-border focus:border-border-focus focus:ring-2 focus:ring-border-focus'
+                      } outline-none text-text-primary placeholder-text-tertiary tracking-widest font-mono`}
+                    />
+                  </div>
+                  {errors.otp && (
+                    <p className="text-sm text-error mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.otp}
+                    </p>
+                  )}
+                </div>
+
                 {/* New Password */}
                 <div className="space-y-2">
                   <label htmlFor="password" className="block text-sm font-medium text-text-primary">
@@ -114,7 +164,6 @@ export default function ResetPasswordPage() {
                   )}
                 </div>
 
-                {/* Password Strength */}
                 <PasswordStrength password={password} />
 
                 {/* Confirm Password */}

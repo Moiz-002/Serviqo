@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import NextImage from 'next/image';
 import {
   Menu,
@@ -30,17 +30,26 @@ import {
   Mail,
   ArrowUpRight,
   Cpu,
+  User,
+  LogOut,
+  LayoutDashboard,
+  PlusSquare,
 } from 'lucide-react';
 import { FaTwitter, FaLinkedin, FaInstagram, FaFacebook } from 'react-icons/fa';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import * as api from '@/lib/api';
 
 // ============================================================================
 // NAVBAR COMPONENT
 // ============================================================================
-const Navbar = () => {
+const Navbar = ({ user, loading, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  const router = useRouter();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,14 +70,51 @@ const Navbar = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    await onLogout();
+    setShowDropdown(false);
+  };
+
   const navLinks = [
     { label: 'How It Works', href: '#how-it-works' },
     { label: 'Services', href: '#services' },
     { label: 'For Professionals', href: '#for-professionals' },
   ];
 
+  const getDashboardUrl = () => {
+    if (!user) return '/login';
+    if (user.role === 'admin') return '/admin/dashboard';
+    if (user.role === 'worker') return '/worker/dashboard';
+    return '/customer/dashboard';
+  };
+
+  const getPostJobUrl = () => {
+    if (!user) return '/login?intendedUrl=/customer/post-job';
+    if (user.role === 'worker') return '/worker/dashboard';
+    return '/customer/post-job';
+  };
+
   const scrolledClasses = 'bg-white/95 backdrop-blur-md border-b border-navy-100 shadow-md py-3';
   const transparentClasses = 'bg-transparent py-5 max-md:bg-white max-md:py-3 max-md:border-b max-md:border-navy-100';
+
+  // Loading Skeleton for Auth Area
+  const AuthSkeleton = () => (
+    <div className="flex items-center gap-4 animate-pulse">
+      <div className="w-16 h-4 bg-navy-100 rounded-full" />
+      <div className="w-24 h-10 bg-navy-100 rounded-xl" />
+      <div className="w-24 h-10 bg-navy-100 rounded-xl" />
+    </div>
+  );
 
   return (
     <nav
@@ -99,20 +145,102 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* Desktop CTA Buttons */}
+        {/* Desktop CTA Buttons / Profile */}
         <div className="hidden md:flex items-center gap-4">
-          <a
-            href="/login"
-            className="text-navy-900 font-bold hover:text-cyan-600 transition-colors px-4 py-2 cursor-pointer"
-          >
-            Sign In
-          </a>
-          <Link href="/post-job" className="px-5 py-2.5 border-2 border-navy-600 text-navy-600 font-bold rounded-xl hover:bg-navy-50 transition-all">
-            Post a Job
-          </Link>
-          <Link href="/signup" className="px-5 py-2.5 bg-navy-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-200/50 hover:bg-navy-700 transition-all">
-            Get Started
-          </Link>
+          {loading ? (
+            <AuthSkeleton />
+          ) : user ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-3 p-1.5 pr-4 rounded-2xl hover:bg-navy-50 transition-all border border-transparent hover:border-navy-100 group"
+              >
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-navy-100 border-2 border-white shadow-sm group-hover:shadow-md transition-all flex items-center justify-center text-navy-600 font-bold">
+                  {user.profilePicture ? (
+                    <img src={api.getImageUrl(user.profilePicture)} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="text-left hidden lg:block">
+                  <p className="text-sm font-black text-navy-900 leading-none mb-1">{user.name.split(' ')[0]}</p>
+                  <p className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider">{user.role}</p>
+                </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showDropdown && (
+                <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-2xl border border-navy-100 py-3 animate-fade-in origin-top-right overflow-hidden">
+                  <div className="px-5 py-3 border-b border-navy-50 mb-2">
+                    <p className="text-xs font-bold text-navy-400 uppercase tracking-widest mb-1">Signed in as</p>
+                    <p className="text-sm font-black text-navy-900 truncate">{user.email || user.phone}</p>
+                  </div>
+                  
+                  <Link
+                    href={getDashboardUrl()}
+                    className="flex items-center gap-3 px-5 py-3 text-navy-600 hover:text-navy-900 hover:bg-navy-50 transition-colors font-bold"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    <LayoutDashboard className="w-5 h-5 text-navy-400" />
+                    Dashboard
+                  </Link>
+                  
+                  {user.role === 'admin' && (
+                    <Link
+                      href="/admin/analytics"
+                      className="flex items-center gap-3 px-5 py-3 text-navy-600 hover:text-navy-900 hover:bg-navy-50 transition-colors font-bold"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      <Activity className="w-5 h-5 text-navy-400" />
+                      Analytics
+                    </Link>
+                  )}
+
+                  {user.role === 'customer' && (
+                    <Link
+                      href="/customer/post-job"
+                      className="flex items-center gap-3 px-5 py-3 text-navy-600 hover:text-navy-900 hover:bg-navy-50 transition-colors font-bold"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      <PlusSquare className="w-5 h-5 text-navy-400" />
+                      Post a New Job
+                    </Link>
+                  )}
+
+                  <div className="h-px bg-navy-50 my-2" />
+                  
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 w-full px-5 py-3 text-error hover:bg-error-subtle transition-colors font-bold text-left"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="text-navy-900 font-bold hover:text-cyan-600 transition-colors px-4 py-2 cursor-pointer"
+              >
+                Sign In
+              </Link>
+              <Link 
+                href={getPostJobUrl()} 
+                className="px-5 py-2.5 border-2 border-navy-600 text-navy-600 font-bold rounded-xl hover:bg-navy-50 transition-all"
+              >
+                Post a Job
+              </Link>
+              <Link 
+                href="/signup" 
+                className="px-5 py-2.5 bg-navy-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-200/50 hover:bg-navy-700 transition-all"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -145,12 +273,58 @@ const Navbar = () => {
             </a>
           ))}
           <div className="pt-4 space-y-3">
-            <Link href="/login" className="block text-center py-3 font-bold text-navy-900 border-2 border-navy-100 rounded-xl cursor-pointer">
-              Sign In
-            </Link>
-            <Link href="/signup" className="block text-center py-4 bg-navy-600 text-white font-black rounded-xl shadow-lg cursor-pointer">
-              Get Started
-            </Link>
+            {loading ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="h-12 bg-navy-50 rounded-xl" />
+                <div className="h-12 bg-navy-50 rounded-xl" />
+              </div>
+            ) : user ? (
+              <>
+                <div className="flex items-center gap-4 p-4 bg-navy-50 rounded-2xl mb-4">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-white flex items-center justify-center text-navy-600 font-black text-xl shadow-sm">
+                    {user.profilePicture ? (
+                      <img src={user.profilePicture} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-black text-navy-900">{user.name}</p>
+                    <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest">{user.role}</p>
+                  </div>
+                </div>
+                <Link 
+                  href={getDashboardUrl()} 
+                  className="block text-center py-4 font-bold text-navy-900 border-2 border-navy-100 rounded-xl cursor-pointer"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Go to Dashboard
+                </Link>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full text-center py-4 bg-error text-white font-black rounded-xl shadow-lg cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link 
+                  href="/login" 
+                  className="block text-center py-3 font-bold text-navy-900 border-2 border-navy-100 rounded-xl cursor-pointer"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/signup" 
+                  className="block text-center py-4 bg-navy-600 text-white font-black rounded-xl shadow-lg cursor-pointer"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -929,7 +1103,19 @@ const TestimonialsSection = () => {
 // ============================================================================
 // CTA BANNER
 // ============================================================================
-const CTABannerSection = () => {
+const CTABannerSection = ({ user }) => {
+  const getPostJobUrl = () => {
+    if (!user) return '/login?intendedUrl=/customer/post-job';
+    if (user.role === 'worker') return '/worker/dashboard';
+    return '/customer/post-job';
+  };
+
+  const getJoinAsProUrl = () => {
+    if (!user) return '/signup';
+    if (user.role === 'worker') return '/worker/dashboard';
+    return '/customer/dashboard';
+  };
+
   return (
     <section className="py-24 sm:py-32 relative overflow-hidden bg-navy-900">
       {/* Background Effects */}
@@ -956,12 +1142,12 @@ const CTABannerSection = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <Button variant="accent" size="xl" className="px-12 cursor-pointer shadow-glow-accent hover:scale-105 active:scale-95 transition-all">
+            <Link href={getPostJobUrl()} className="px-12 py-5 bg-cyan-500 text-navy-900 font-black rounded-2xl hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all transform hover:-translate-y-1">
               Post a Job — It's Free
-            </Button>
-            <Button variant="outline" size="xl" className="px-12 !border-white !text-white hover:!bg-white/10 cursor-pointer hover:scale-105 active:scale-95 transition-all">
+            </Link>
+            <Link href={getJoinAsProUrl()} className="px-12 py-5 border-2 border-white text-white font-black rounded-2xl hover:bg-white/10 transition-all">
               Join as a Professional
-            </Button>
+            </Link>
           </div>
           
           <div className="mt-12 flex items-center justify-center gap-8 opacity-60">
@@ -1083,9 +1269,37 @@ const FooterSection = () => {
 // MAIN PAGE COMPONENT
 // ============================================================================
 export default function LandingPage() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await api.getMe();
+        setUser(data.user);
+      } catch (err) {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      setUser(null);
+      router.refresh();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar user={user} loading={loading} onLogout={handleLogout} />
       <HeroSection />
       <SocialProofBar />
       <HowItWorksSection />
@@ -1093,7 +1307,7 @@ export default function LandingPage() {
       <WhyServiqoSection />
       <ForProfessionalsSection />
       <TestimonialsSection />
-      <CTABannerSection />
+      <CTABannerSection user={user} />
       <FooterSection />
     </main>
   );

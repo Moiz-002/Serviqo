@@ -1,30 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Clock, 
-  Tag, 
-  MessageSquare, 
+import React, { useState, useEffect } from 'react';
+import {
+  Search,
+  Filter,
+  MapPin,
+  Clock,
+  Tag,
+  MessageSquare,
   ChevronRight,
   Plus,
   ArrowUpRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Briefcase
 } from 'lucide-react';
 import Link from 'next/link';
-import { DUMMY_JOBS, CATEGORIES, BUDGET_RANGES } from '@/config/job-constants';
+import { CATEGORIES, BUDGET_RANGES } from '@/config/job-constants';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import * as api from '@/lib/api';
 
 export default function MyJobsPage() {
   const [filter, setFilter] = useState('all');
+  const [jobs, setJobs] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredJobs = filter === 'all' 
-    ? DUMMY_JOBS 
-    : DUMMY_JOBS.filter(job => job.status === filter);
+  useEffect(() => {
+    api.getJobs()
+      .then((data) => setJobs(data.jobs || []))
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const filteredJobs = jobs.filter((job) => {
+    const matchesFilter = filter === 'all' || job.status === filter;
+    const matchesSearch = !searchTerm || job.title?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -90,9 +104,11 @@ export default function MyJobsPage() {
         
         <div className="relative w-full md:w-72">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Search your jobs..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-border rounded-xl text-sm font-medium outline-none focus:border-primary transition-all text-text-primary placeholder:text-text-tertiary"
           />
         </div>
@@ -100,18 +116,26 @@ export default function MyJobsPage() {
 
       {/* Jobs List */}
       <div className="space-y-6">
-        {filteredJobs.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16 text-text-tertiary">Loading your jobs…</div>
+        ) : filteredJobs.length > 0 ? (
           filteredJobs.map((job) => (
-            <Link key={job.id} href={`/customer/job/${job.id}`}>
+            <Link key={job._id || job.id} href={`/customer/job/${job._id || job.id}`}>
               <Card className="p-0 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden border-neutral-200/60 mb-6 block relative">
                 <div className="flex flex-col lg:flex-row">
                   {/* Image Section */}
                   <div className="w-full lg:w-56 h-48 lg:h-auto shrink-0 relative overflow-hidden bg-neutral-100">
-                    <img 
-                      src={job.images[0] || 'https://via.placeholder.com/300?text=No+Image'} 
-                      alt={job.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
+                    {(job.images?.[0]) ? (
+                      <img
+                        src={api.getImageUrl(job.images[0])}
+                        alt={job.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                        <Briefcase className="w-12 h-12" />
+                      </div>
+                    )}
                     <div className="absolute top-3 left-3">
                       {getStatusBadge(job.status)}
                     </div>
@@ -123,7 +147,7 @@ export default function MyJobsPage() {
                       <div className="flex items-start justify-between gap-4 mb-4">
                         <div>
                           <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-1">
-                            {CATEGORIES.find(c => c.id === job.category)?.name}
+                            {job.serviceCategory || CATEGORIES.find(c => c.id === job.category)?.name || 'Service'}
                           </p>
                           <h2 className="text-xl font-black text-text-primary truncate group-hover:text-primary transition-colors leading-tight">
                             {job.title}
@@ -142,25 +166,27 @@ export default function MyJobsPage() {
                     <div className="flex flex-wrap items-center gap-y-4 gap-x-8 pt-6 border-t border-neutral-100">
                       <div className="flex items-center gap-2 text-text-secondary">
                         <MapPin className="w-4 h-4 text-accent" />
-                        <span className="text-xs font-black uppercase tracking-tight">{job.location.area}, {job.location.city}</span>
+                        <span className="text-xs font-black uppercase tracking-tight">
+                          {job.location?.area ? `${job.location.area}, ${job.location.city}` : job.location?.city || '—'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-text-secondary">
                         <Clock className="w-4 h-4 text-warning" />
-                        <span className="text-xs font-black uppercase tracking-tight">{job.urgency}</span>
+                        <span className="text-xs font-black uppercase tracking-tight">{job.urgency || '—'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-text-secondary">
                         <Tag className="w-4 h-4 text-primary" />
                         <span className="text-xs font-black uppercase tracking-tight">
-                          {BUDGET_RANGES.find(b => b.id === job.budget)?.range}
+                          {job.budgetRange || BUDGET_RANGES.find(b => b.id === job.budget)?.range || '—'}
                         </span>
                       </div>
-                      
+
                       <div className="ml-auto flex items-center gap-3">
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-primary-subtle text-primary rounded-full border border-primary/10">
                           <MessageSquare className="w-4 h-4" />
-                          <span className="text-xs font-black tracking-widest">{job.proposalsCount} Bids</span>
+                          <span className="text-xs font-black tracking-widest">{job.bids?.length || job.proposalsCount || 0} Bids</span>
                         </div>
-                        {job.status === 'open' && job.proposalsCount > 0 && (
+                        {job.status === 'open' && (job.bids?.length || job.proposalsCount || 0) > 0 && (
                           <div className="text-[10px] font-black text-accent uppercase animate-pulse">
                             New Bids!
                           </div>

@@ -128,12 +128,12 @@ const ReviewBars = () => {
             <div
               className="h-full bg-accent transition-all duration-700 ease-out"
               style={{
-                width: `${mockWorker.ratingDistribution[stars]}%`,
+                width: `${worker.ratingDistribution[stars]}%`,
               }}
             />
           </div>
           <span className="text-xs text-text-tertiary w-8">
-            {mockWorker.ratingDistribution[stars]}%
+            {worker.ratingDistribution[stars]}%
           </span>
         </div>
       ))}
@@ -242,10 +242,61 @@ const PortfolioLightbox = ({ images, initialIndex = 0 }) => {
   );
 };
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as api from '@/lib/api';
 
 export default function WorkerProfilePage({ params }) {
   const workerId = params.workerId;
+  const [worker, setWorker] = useState(mockWorker);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    api.getWorkerPublicProfile(workerId)
+      .then((data) => {
+        const w = data.worker || data;
+        setWorker({
+          ...mockWorker,
+          id: w._id,
+          name: w.name || worker.name,
+          firstName: (w.name || '').split(' ')[0] || worker.firstName,
+          role: w.serviceCategory ? `${w.serviceCategory} Professional` : worker.role,
+          city: [w.area, w.city].filter(Boolean).join(', ') || worker.city,
+          avatar: w.profilePicture || worker.avatar,
+          bio: w.bio || worker.bio,
+          rating: w.rating || worker.rating,
+          reviewCount: w.reviewCount || worker.reviewCount,
+          jobsCompleted: w.completedJobs || worker.jobsCompleted,
+          experience: w.experience ? `${w.experience} yrs exp.` : worker.experience,
+          responseTime: w.responseTime ? `~${w.responseTime} response` : worker.responseTime,
+          hourlyRate: w.hourlyRate || worker.hourlyRate,
+          category: w.serviceCategory || worker.category,
+          skills: w.skills?.length ? w.skills : worker.skills,
+          portfolio: w.portfolioItems?.length
+            ? w.portfolioItems.map((p) => ({ url: p.image, caption: p.caption }))
+            : worker.portfolio,
+          workingDays: w.availability
+            ? Object.entries(w.availability).filter(([, v]) => v?.available).map(([k]) => k.slice(0, 3).charAt(0).toUpperCase() + k.slice(1, 3))
+            : worker.workingDays,
+          workingHours: (() => {
+            const days = w.availability ? Object.values(w.availability).filter((v) => v?.available) : [];
+            return days.length ? `${days[0].from} – ${days[0].to}` : worker.workingHours;
+          })(),
+          responseTimeText: w.responseTime ? `Typically responds within ${w.responseTime}` : worker.responseTimeText,
+          reviews: w.reviews?.length ? w.reviews.map((r) => ({
+            id: r._id,
+            author: r.customer?.name || 'Anonymous',
+            role: 'Customer',
+            avatar: r.customer?.profilePicture || 'https://ui-avatars.com/api/?name=C&background=1E3A8A&color=fff',
+            rating: r.rating,
+            date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '',
+            text: r.comment || '',
+            helpful: 0, unhelpful: 0,
+          })) : worker.reviews,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [workerId]);
 
   const renderStars = (rating) => {
     const stars = [];
@@ -289,8 +340,8 @@ export default function WorkerProfilePage({ params }) {
             {/* Avatar */}
             <div className="relative w-24 md:w-32 h-24 md:h-32 flex-shrink-0">
               <Image
-                src={mockWorker.avatar}
-                alt={mockWorker.name}
+                src={worker.avatar}
+                alt={worker.name}
                 fill
                 className="rounded-full object-cover border-4 border-accent"
               />
@@ -302,44 +353,44 @@ export default function WorkerProfilePage({ params }) {
             {/* Info */}
             <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-bold text-text-primary">
-                {mockWorker.name}
+                {worker.name}
               </h1>
 
               <div className="flex flex-wrap items-center gap-3 mt-2">
                 <div className="px-3 py-1 bg-primary-light text-primary rounded-full text-xs font-semibold uppercase">
-                  {mockWorker.role}
+                  {worker.role}
                 </div>
                 <div className="flex items-center gap-1 text-sm text-text-secondary">
                   <MapPin className="w-4 h-4 text-accent" strokeWidth={2} />
-                  {mockWorker.city}
+                  {worker.city}
                 </div>
               </div>
 
               {/* Rating */}
               <div className="flex items-center gap-2 mt-4">
                 <div className="flex gap-0.5">
-                  {renderStars(mockWorker.rating)}
+                  {renderStars(worker.rating)}
                 </div>
-                <span className="font-bold text-text-primary">{mockWorker.rating}</span>
+                <span className="font-bold text-text-primary">{worker.rating}</span>
                 <span className="text-sm text-text-secondary">
-                  ({mockWorker.reviewCount} reviews)
+                  ({worker.reviewCount} reviews)
                 </span>
               </div>
 
               {/* Stats */}
               <div className="flex flex-wrap gap-6 mt-4 text-sm">
                 <div>
-                  <p className="font-bold text-text-primary">{mockWorker.jobsCompleted}</p>
+                  <p className="font-bold text-text-primary">{worker.jobsCompleted}</p>
                   <p className="text-text-tertiary text-xs">Jobs Completed</p>
                 </div>
                 <div className="border-l border-border"></div>
                 <div>
-                  <p className="font-bold text-text-primary">{mockWorker.experience}</p>
+                  <p className="font-bold text-text-primary">{worker.experience}</p>
                   <p className="text-text-tertiary text-xs">Experience</p>
                 </div>
                 <div className="border-l border-border"></div>
                 <div>
-                  <p className="font-bold text-text-primary">{mockWorker.responseTime}</p>
+                  <p className="font-bold text-text-primary">{worker.responseTime}</p>
                   <p className="text-text-tertiary text-xs">Response Time</p>
                 </div>
               </div>
@@ -348,11 +399,11 @@ export default function WorkerProfilePage({ params }) {
               <div className="flex items-center gap-2 mt-4">
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    mockWorker.available ? 'bg-success animate-pulse' : 'bg-text-tertiary'
+                    worker.available ? 'bg-success animate-pulse' : 'bg-text-tertiary'
                   }`}
                 />
                 <span className="text-sm font-medium text-text-secondary">
-                  {mockWorker.available ? 'Available Today' : 'Next available: Tomorrow'}
+                  {worker.available ? 'Available Today' : 'Next available: Tomorrow'}
                 </span>
               </div>
             </div>
@@ -376,10 +427,10 @@ export default function WorkerProfilePage({ params }) {
         {/* About Section */}
         <section className="bg-surface rounded-3xl shadow-md p-8 mb-8">
           <h2 className="text-2xl font-bold text-text-primary mb-4">
-            About {mockWorker.firstName}
+            About {worker.firstName}
           </h2>
           <p className="text-text-secondary leading-relaxed text-base">
-            {mockWorker.bio}
+            {worker.bio}
           </p>
         </section>
 
@@ -391,7 +442,7 @@ export default function WorkerProfilePage({ params }) {
 
           <div className="mb-6">
             <div className="inline-block px-4 py-2 bg-primary-light text-primary rounded-full text-sm font-semibold uppercase">
-              {mockWorker.category}
+              {worker.category}
             </div>
           </div>
 
@@ -400,7 +451,7 @@ export default function WorkerProfilePage({ params }) {
               Specific Skills
             </p>
             <div className="flex flex-wrap gap-2">
-              {mockWorker.skills.map((skill) => (
+              {worker.skills.map((skill) => (
                 <div
                   key={skill}
                   className="px-3 py-1.5 bg-surface border border-border text-text-primary rounded-full text-sm"
@@ -411,13 +462,13 @@ export default function WorkerProfilePage({ params }) {
             </div>
           </div>
 
-          {mockWorker.certifications.length > 0 && (
+          {worker.certifications.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase text-text-secondary mb-3">
                 Certifications
               </p>
               <div className="space-y-2">
-                {mockWorker.certifications.map((cert) => (
+                {worker.certifications.map((cert) => (
                   <div key={cert.title} className="flex gap-2 text-sm">
                     <Award className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
                     <div>
@@ -434,12 +485,12 @@ export default function WorkerProfilePage({ params }) {
         </section>
 
         {/* Portfolio */}
-        {mockWorker.portfolio.length > 0 && (
+        {worker.portfolio.length > 0 && (
           <section className="bg-surface rounded-3xl shadow-md p-8 mb-8">
             <h2 className="text-2xl font-bold text-text-primary mb-6">
               Portfolio
             </h2>
-            <PortfolioLightbox images={mockWorker.portfolio} />
+            <PortfolioLightbox images={worker.portfolio} />
           </section>
         )}
 
@@ -459,7 +510,7 @@ export default function WorkerProfilePage({ params }) {
                   <div
                     key={day}
                     className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      mockWorker.workingDays.includes(day)
+                      worker.workingDays.includes(day)
                         ? 'bg-accent-light text-accent border border-accent'
                         : 'bg-surface text-text-disabled border border-border line-through'
                     }`}
@@ -474,7 +525,7 @@ export default function WorkerProfilePage({ params }) {
               <Clock className="w-5 h-5 text-accent" strokeWidth={2} />
               <div>
                 <span className="font-semibold text-text-primary">
-                  {mockWorker.workingHours}
+                  {worker.workingHours}
                 </span>
                 <p className="text-xs text-text-tertiary">Standard working hours</p>
               </div>
@@ -482,7 +533,7 @@ export default function WorkerProfilePage({ params }) {
 
             <div className="flex items-center gap-3 text-sm">
               <TrendingUp className="w-5 h-5 text-accent" strokeWidth={2} />
-              <span className="text-text-secondary">{mockWorker.responseTimeText}</span>
+              <span className="text-text-secondary">{worker.responseTimeText}</span>
             </div>
           </div>
         </section>
@@ -499,14 +550,14 @@ export default function WorkerProfilePage({ params }) {
               <div className="md:w-48">
                 <div className="flex items-baseline gap-3 mb-6">
                   <span className="text-4xl font-bold text-text-primary">
-                    {mockWorker.rating}
+                    {worker.rating}
                   </span>
                   <div className="flex gap-0.5">
-                    {renderStars(mockWorker.rating)}
+                    {renderStars(worker.rating)}
                   </div>
                 </div>
                 <p className="text-sm text-text-secondary">
-                  Based on {mockWorker.reviewCount} reviews
+                  Based on {worker.reviewCount} reviews
                 </p>
               </div>
 
@@ -519,7 +570,7 @@ export default function WorkerProfilePage({ params }) {
 
           {/* Individual Reviews */}
           <div className="space-y-4">
-            {mockWorker.reviews.map((review) => (
+            {worker.reviews.map((review) => (
               <div
                 key={review.id}
                 className="border border-border rounded-2xl p-6"

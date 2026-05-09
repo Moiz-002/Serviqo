@@ -1,48 +1,88 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Shield, 
-  Camera, 
-  Save, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Shield,
+  Camera,
+  Save,
   CheckCircle2,
   ChevronRight,
   AlertCircle
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import FormField from '@/components/ui/FormField';
+import * as api from '@/lib/api';
 
 export default function CustomerProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const avatarFileRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    fullName: 'Zainab R.',
-    email: 'zainab.r@example.com',
-    phone: '+92 312 3456789',
-    city: 'Islamabad',
-    area: 'F-10/2',
+    fullName: '',
+    email: '',
+    phone: '',
+    city: '',
+    area: '',
+    profilePicture: '',
+    createdAt: '',
+    jobsPosted: 0,
   });
+
+  useEffect(() => {
+    api.getMe().then((data) => {
+      const u = data.user || data;
+      setFormData({
+        fullName: u.name || '',
+        email: u.email || '',
+        phone: u.phone || '',
+        city: u.city || '',
+        area: u.address || '',
+        profilePicture: u.profilePicture || '',
+        createdAt: u.createdAt || '',
+        jobsPosted: u.jobsPosted || 0,
+      });
+    }).catch(() => {});
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+      avatarFileRef.current = file;
+    }
+  };
+
+  const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError('');
+    try {
+      const fd = new FormData();
+      fd.append('name', formData.fullName);
+      if (formData.city) fd.append('city', formData.city);
+      if (formData.area) fd.append('address', formData.area);
+      if (avatarFileRef.current) fd.append('profilePicture', avatarFileRef.current);
+      await api.updateUserProfile(fd);
       setIsEditing(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -91,6 +131,12 @@ export default function CustomerProfilePage() {
           <p className="font-bold text-sm">Profile updated successfully!</p>
         </div>
       )}
+      {saveError && (
+        <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5" />
+          <p className="font-bold text-sm">{saveError}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left Col: Avatar & Status */}
@@ -98,22 +144,26 @@ export default function CustomerProfilePage() {
           <Card className="p-8 text-center border-neutral-200/60">
             <div className="relative inline-block group">
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary-50 shadow-inner">
-                <img 
-                  src="/profile_2.png" 
-                  alt="Profile" 
+                <img
+                  src={avatarPreview || formData.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName || 'U')}&background=1E3A8A&color=fff`}
+                  alt="Profile"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = "https://ui-avatars.com/api/?name=Zainab+R&background=1E3A8A&color=fff";
-                  }}
                 />
               </div>
               {isEditing && (
-                <button className="absolute bottom-0 right-0 p-2.5 bg-primary text-white rounded-full border-4 border-white shadow-lg hover:scale-110 transition-transform">
-                  <Camera className="w-5 h-5" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('avatar-upload').click()}
+                    className="absolute bottom-0 right-0 p-2.5 bg-primary text-white rounded-full border-4 border-white shadow-lg hover:scale-110 transition-transform"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+                  <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                </>
               )}
             </div>
-            <h2 className="mt-6 text-xl font-black text-neutral-900">{formData.fullName}</h2>
+            <h2 className="mt-6 text-xl font-black text-neutral-900">{formData.fullName || '—'}</h2>
             <p className="text-sm text-neutral-500 font-bold uppercase tracking-widest mt-1">Customer</p>
             
             <div className="mt-8 pt-8 border-t border-neutral-100 flex items-center justify-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-tight">
@@ -125,15 +175,13 @@ export default function CustomerProfilePage() {
           <Card className="p-6 border-neutral-200/60 bg-primary-900 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12"></div>
             <h4 className="font-black text-sm uppercase tracking-widest text-primary-300">Member Since</h4>
-            <p className="text-lg font-bold mt-1">October 2024</p>
+            <p className="text-lg font-bold mt-1">
+              {formData.createdAt ? new Date(formData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
+            </p>
             <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center">
               <div>
                 <p className="text-[10px] font-black uppercase text-primary-300">Jobs Posted</p>
-                <p className="text-xl font-black">16</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black uppercase text-primary-300">Avg. Rating</p>
-                <p className="text-xl font-black">4.9/5</p>
+                <p className="text-xl font-black">{formData.jobsPosted}</p>
               </div>
             </div>
           </Card>

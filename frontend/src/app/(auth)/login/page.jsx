@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import * as api from '@/lib/api';
 import {
   Mail,
   Lock,
@@ -58,11 +59,25 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrors({});
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setIsLoading(false);
-    router.push('/dashboard');
+    try {
+      const data = await api.login({ identifier: email, password });
+      const role = data.user?.role;
+      if (role === 'worker') {
+        router.push('/worker/dashboard');
+      } else if (role === 'admin') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/customer/dashboard');
+      }
+    } catch (err) {
+      setIsLoading(false);
+      if (err.status === 403 && err.data?.userId) {
+        localStorage.setItem('pendingUserId', err.data.userId);
+        router.push('/verify');
+        return;
+      }
+      setErrors({ general: err.message || 'Invalid credentials' });
+    }
   };
 
   const handleFieldChange = (field, value) => {
@@ -101,6 +116,11 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
+            {errors.general && (
+              <div className="p-3 bg-error-light border border-error rounded-lg text-sm text-error">
+                {errors.general}
+              </div>
+            )}
             {/* Email or Phone */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">
@@ -209,7 +229,7 @@ export default function LoginPage() {
 
           {/* OTP Login */}
           <button
-            onClick={() => router.push('/verify')}
+            onClick={() => router.push('/login-otp')}
             className="w-full py-2.5 border border-border rounded-full hover:bg-neutral-100 cursor-pointer transition-colors flex items-center justify-center gap-2 font-semibold text-text-primary shadow-sm hover:shadow-md"
           >
             <ShieldCheck className="w-5 h-5" />

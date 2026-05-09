@@ -1,27 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Clock, 
-  Tag, 
-  MessageSquare, 
+import React, { useState, useEffect } from 'react';
+import {
+  Search,
+  Filter,
+  MapPin,
+  Clock,
+  Tag,
+  MessageSquare,
   ChevronRight,
   Plus,
-  ArrowUpRight
+  ArrowUpRight,
+  Briefcase
 } from 'lucide-react';
 import Link from 'next/link';
-import { DUMMY_JOBS, CATEGORIES, BUDGET_RANGES, URGENCY_LEVELS } from '@/config/job-constants';
+import { BUDGET_RANGES } from '@/config/job-constants';
 import Card from '@/components/ui/Card';
+import * as api from '@/lib/api';
 
 export default function MyJobsPage() {
   const [filter, setFilter] = useState('all');
+  const [jobs, setJobs] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredJobs = filter === 'all' 
-    ? DUMMY_JOBS 
-    : DUMMY_JOBS.filter(job => job.status === filter);
+  useEffect(() => {
+    api.getJobs().then((data) => setJobs(data.jobs || [])).catch(() => {});
+  }, []);
+
+  const filteredJobs = jobs.filter((job) => {
+    const matchesFilter = filter === 'all' || job.status === filter;
+    const matchesSearch = !searchTerm || job.title?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -69,9 +79,11 @@ export default function MyJobsPage() {
           
           <div className="relative w-full md:w-64">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search your jobs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-neutral-200 rounded-2xl text-sm outline-none focus:border-primary-500 transition-all"
             />
           </div>
@@ -81,27 +93,24 @@ export default function MyJobsPage() {
         <div className="space-y-6">
           {filteredJobs.length > 0 ? (
             filteredJobs.map((job) => (
-              <Link key={job.id} href={`/job/${job.id}`}>
+              <Link key={job._id || job.id} href={`/job/${job._id || job.id}`}>
                 <Card className="p-6 md:p-8 hover:border-primary-300 hover:shadow-xl hover:shadow-primary-500/5 transition-all group border-neutral-200/60 mb-6 block">
                   <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Image Thumbnail */}
-                    <div className="w-full lg:w-48 h-48 lg:h-32 rounded-2xl overflow-hidden shrink-0 border border-neutral-100">
-                      <img 
-                        src={job.images[0] || 'https://via.placeholder.com/300?text=No+Image'} 
-                        alt={job.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
+                    <div className="w-full lg:w-48 h-48 lg:h-32 rounded-2xl overflow-hidden shrink-0 border border-neutral-100 bg-neutral-50 flex items-center justify-center">
+                      {job.images?.[0] ? (
+                        <img
+                          src={job.images[0]}
+                          alt={job.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                      ) : <Briefcase className="w-10 h-10 text-neutral-300" />}
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div>
-                          <span className={`
-                            text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border mb-3 inline-block
-                            ${getStatusStyle(job.status)}
-                          `}>
-                            {job.status}
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border mb-3 inline-block ${getStatusStyle(job.status)}`}>
+                            {job.status || 'open'}
                           </span>
                           <h2 className="text-xl font-bold text-neutral-900 truncate group-hover:text-primary-600 transition-colors">
                             {job.title}
@@ -119,21 +128,23 @@ export default function MyJobsPage() {
                       <div className="flex flex-wrap items-center gap-y-4 gap-x-6">
                         <div className="flex items-center gap-2 text-neutral-600">
                           <MapPin className="w-4 h-4 text-accent-600" />
-                          <span className="text-xs font-bold">{job.location.area}, {job.location.city}</span>
+                          <span className="text-xs font-bold">
+                            {job.location?.area ? `${job.location.area}, ${job.location.city}` : job.location?.city || '—'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-neutral-600">
                           <Clock className="w-4 h-4 text-amber-500" />
-                          <span className="text-xs font-bold capitalize">{job.urgency}</span>
+                          <span className="text-xs font-bold capitalize">{job.urgency || '—'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-neutral-600">
                           <Tag className="w-4 h-4 text-emerald-500" />
                           <span className="text-xs font-bold uppercase tracking-tight">
-                            {BUDGET_RANGES.find(b => b.id === job.budget)?.range}
+                            {job.budgetRange || BUDGET_RANGES.find(b => b.id === job.budget)?.range || '—'}
                           </span>
                         </div>
                         <div className="ml-auto flex items-center gap-2 px-4 py-1.5 bg-primary-50 text-primary-600 rounded-full border border-primary-100">
                           <MessageSquare className="w-4 h-4" />
-                          <span className="text-xs font-black">{job.proposalsCount} Bids</span>
+                          <span className="text-xs font-black">{job.bids?.length || job.proposalsCount || 0} Bids</span>
                         </div>
                       </div>
                     </div>

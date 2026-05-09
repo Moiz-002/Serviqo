@@ -1,31 +1,70 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
-import { DAYS_OF_WEEK, HOURS, DUMMY_WORKER, RESPONSE_TIMES } from '@/config/worker-constants';
+import { DAYS_OF_WEEK, HOURS, RESPONSE_TIMES } from '@/config/worker-constants';
+import * as api from '@/lib/api';
+
+const DAY_MAP = {
+  Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday',
+  Fri: 'friday', Sat: 'saturday', Sun: 'sunday',
+};
+const DAY_MAP_REVERSE = Object.fromEntries(Object.entries(DAY_MAP).map(([k, v]) => [v, k]));
 
 export default function WorkerAvailabilityPage() {
-  const [workingDays, setWorkingDays] = useState(DUMMY_WORKER.workingDays);
-  const [startTime, setStartTime] = useState(DUMMY_WORKER.startTime);
-  const [endTime, setEndTime] = useState(DUMMY_WORKER.endTime);
-  const [instantBooking, setInstantBooking] = useState(DUMMY_WORKER.instantBooking);
-  const [responseTime, setResponseTime] = useState(DUMMY_WORKER.responseTime);
+  const [workingDays, setWorkingDays] = useState([]);
+  const [startTime, setStartTime] = useState('09:00 AM');
+  const [endTime, setEndTime] = useState('06:00 PM');
+  const [instantBooking, setInstantBooking] = useState(false);
+  const [responseTime, setResponseTime] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    api.getMe().then((data) => {
+      const u = data.user || data;
+      if (u.availability) {
+        const days = Object.entries(u.availability)
+          .filter(([, v]) => v?.available)
+          .map(([k]) => DAY_MAP_REVERSE[k])
+          .filter(Boolean);
+        setWorkingDays(days);
+        const firstDay = Object.values(u.availability).find((v) => v?.available);
+        if (firstDay?.from) setStartTime(firstDay.from);
+        if (firstDay?.to) setEndTime(firstDay.to);
+      }
+      if (u.responseTime) setResponseTime(u.responseTime);
+    }).catch(() => {});
+  }, []);
 
   const toggleDay = (day) => {
-    setWorkingDays(prev => 
+    setWorkingDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError('');
+    try {
+      const availability = {};
+      DAYS_OF_WEEK.forEach((day) => {
+        const fullDay = DAY_MAP[day];
+        availability[fullDay] = {
+          available: workingDays.includes(day),
+          from: startTime,
+          to: endTime,
+        };
+      });
+      await api.updateAvailability({ availability, responseTime });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -48,6 +87,9 @@ export default function WorkerAvailabilityPage() {
           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           Availability updated successfully!
         </div>
+      )}
+      {saveError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm">{saveError}</div>
       )}
 
       <div className="space-y-8">

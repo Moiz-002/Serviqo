@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import * as apiClient from '@/lib/api';
 import {
   Mail,
   Lock,
@@ -14,13 +15,6 @@ import {
 import { AuthShell } from '@/components/auth/AuthShell';
 import { OtpInput } from '@/components/auth/OtpInput';
 
-const ADMIN_CREDENTIALS = {
-  email: 'admin@serviqo.com',
-  password: 'Serviqo@1234',
-};
-
-const ADMIN_OTP = '123456';
-
 export default function AdminLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState('credentials');
@@ -30,6 +24,7 @@ export default function AdminLoginPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [otpError, setOtpError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const validateCredentials = () => {
     const newErrors = {};
@@ -54,29 +49,39 @@ export default function AdminLoginPage() {
       return;
     }
 
-    if (
-      email.trim().toLowerCase() !== ADMIN_CREDENTIALS.email ||
-      password !== ADMIN_CREDENTIALS.password
-    ) {
-      setErrors({ general: 'Invalid admin email or password' });
-      return;
-    }
-
     setErrors({});
     setIsLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    setIsLoading(false);
-    setStep('totp');
+    try {
+      // Validate credentials WITHOUT establishing a session — session is only
+      // created after TOTP verification in handleOtpComplete.
+      await apiClient.verifyAdminCredentials({ identifier: email.trim(), password });
+      setIsLoading(false);
+      setOtpError(false);
+      setStep('totp');
+    } catch (err) {
+      setErrors({ general: err.message || 'Invalid admin credentials' });
+      setIsLoading(false);
+    }
   };
 
-  const handleOtpComplete = (value) => {
-    if (value === ADMIN_OTP) {
-      router.push('/admin/dashboard');
-      return;
+  const handleOtpComplete = async (value) => {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    setOtpError(false);
+    try {
+      await apiClient.adminLogin({
+        identifier: email.trim(),
+        password,
+        totp: value,
+      });
+      // Hard-navigate so the homepage navbar (and any cached layout) re-fetches
+      // the new session via getMe on next render.
+      window.location.href = '/admin/dashboard';
+    } catch (err) {
+      setOtpError(true);
+      setIsVerifying(false);
     }
-
-    setOtpError(true);
   };
 
   return (
@@ -150,7 +155,7 @@ export default function AdminLoginPage() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors({ ...errors, password: null });
                     }}
-                    placeholder="Enter your password"
+                    placeholder="VeryStrongAdminPass1172"
                     className={`w-full rounded-2xl border px-10 py-3 text-text-primary transition-all outline-none ${
                       errors.password
                         ? 'border-error bg-error-light'

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Mail, ArrowRight, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import Link from 'next/link';
+import * as api from '@/lib/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -32,11 +33,19 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setIsLoading(false);
-    setIsSubmitted(true);
+    try {
+      const data = await api.forgotPassword({ identifier: email });
+      localStorage.setItem('resetUserId', data.userId);
+      if (data.otp) {
+        console.log('DEV Password Reset OTP:', data.otp);
+        localStorage.setItem('devResetOtp', data.otp);
+      }
+      setIsLoading(false);
+      setIsSubmitted(true);
+    } catch (err) {
+      setIsLoading(false);
+      setError(err.message || 'Something went wrong. Please try again.');
+    }
   };
 
   return (

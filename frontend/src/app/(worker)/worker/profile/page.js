@@ -1,37 +1,76 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Save, User, MapPin, Briefcase, Phone, Mail } from 'lucide-react';
 import FormField from '@/components/ui/FormField';
-import { DUMMY_WORKER, CITIES } from '@/config/worker-constants';
+import { CITIES } from '@/config/worker-constants';
+import * as api from '@/lib/api';
 
 export default function WorkerProfilePage() {
   const [formData, setFormData] = useState({
-    displayName: DUMMY_WORKER.displayName,
-    bio: DUMMY_WORKER.bio,
-    city: DUMMY_WORKER.city,
-    area: DUMMY_WORKER.area,
-    yearsExperience: DUMMY_WORKER.yearsExperience,
-    phone: DUMMY_WORKER.phone,
-    email: DUMMY_WORKER.email,
+    displayName: '',
+    bio: '',
+    city: '',
+    area: '',
+    yearsExperience: '1',
+    phone: '',
+    email: '',
+    avatar: '',
   });
-
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const avatarFileRef = useRef(null);
+
+  useEffect(() => {
+    api.getMe().then((data) => {
+      const u = data.user || data;
+      setFormData({
+        displayName: u.name || '',
+        bio: u.bio || '',
+        city: u.city || '',
+        area: u.address || '',
+        yearsExperience: String(u.yearsExperience || u.experience || '1'),
+        phone: u.phone || '',
+        email: u.email || '',
+        avatar: u.profilePicture || '',
+      });
+    }).catch(() => {});
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+      avatarFileRef.current = file;
+    }
+  };
+
+  const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError('');
+    try {
+      const fd = new FormData();
+      fd.append('name', formData.displayName);
+      fd.append('bio', formData.bio);
+      fd.append('city', formData.city);
+      fd.append('address', formData.area);
+      fd.append('experience', formData.yearsExperience);
+      if (avatarFileRef.current) fd.append('profilePicture', avatarFileRef.current);
+      await api.updateWorkerProfile(fd);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -68,6 +107,9 @@ export default function WorkerProfilePage() {
           Profile updated successfully!
         </div>
       )}
+      {saveError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm">{saveError}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left: Photo Upload */}
@@ -75,17 +117,19 @@ export default function WorkerProfilePage() {
           <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm text-center">
             <h3 className="text-sm font-bold text-neutral-900 mb-4">Profile Photo</h3>
             <div className="relative w-32 h-32 mx-auto mb-4 group">
-              <img 
-                src={DUMMY_WORKER.avatar} 
-                alt="Profile" 
+              <img
+                src={avatarPreview || formData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.displayName || 'W')}&background=1E3A8A&color=fff`}
+                alt="Profile"
                 className="w-full h-full rounded-full object-cover border-4 border-neutral-50"
-                onError={(e) => {
-                  e.target.src = "https://ui-avatars.com/api/?name=Ahmad+Hassan&background=1E3A8A&color=fff";
-                }}
               />
-              <button className="absolute bottom-0 right-0 p-2 bg-primary-500 text-white rounded-full border-4 border-white hover:bg-primary-600 transition-colors shadow-lg">
+              <button
+                type="button"
+                onClick={() => document.getElementById('worker-avatar-upload').click()}
+                className="absolute bottom-0 right-0 p-2 bg-primary-500 text-white rounded-full border-4 border-white hover:bg-primary-600 transition-colors shadow-lg"
+              >
                 <Camera className="w-4 h-4" />
               </button>
+              <input id="worker-avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
             <p className="text-xs text-neutral-500 leading-relaxed px-4">
               Clear, professional photos help you build trust with customers.

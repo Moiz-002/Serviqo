@@ -19,6 +19,21 @@ import {
 } from 'lucide-react';
 import { useReducer, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import * as api from '@/lib/api';
+
+const DAY_MAP = {
+  'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday',
+  'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday',
+};
+
+function buildAvailability(workingDays, from, to) {
+  return Object.fromEntries(
+    Object.entries(DAY_MAP).map(([short, full]) => [
+      full,
+      { available: workingDays.includes(short), from, to },
+    ])
+  );
+}
 import FormField from '@/components/ui/FormField';
 import TagInput from '@/components/ui/TagInput';
 import FileUpload from '@/components/ui/FileUpload';
@@ -351,7 +366,7 @@ const Step1Profile = ({ state, dispatch, onNext }) => {
               <option value="1-2">1–2 years</option>
               <option value="3-5">3–5 years</option>
               <option value="6-10">6–10 years</option>
-              <option value="10+">10+ years</option>
+              <option value="10">10+ years</option>
             </select>
           </FormField>
 
@@ -876,10 +891,8 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
   const handleComplete = async () => {
     if (!validateStep4()) return;
     setIsLoading(true);
-    setTimeout(() => {
-      onComplete();
-      setIsLoading(false);
-    }, 2000);
+    await onComplete();
+    setIsLoading(false);
   };
 
   const startHour = HOURS.indexOf(state.startTime);
@@ -1182,6 +1195,26 @@ export default function OnboardingPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { user } = await api.getMe();
+        if (user) {
+          dispatch({ type: 'SET_FIELD', field: 'displayName', value: user.name });
+          // Format phone: remove +92 and handle spacing if needed
+          let displayPhone = user.phone;
+          if (displayPhone.startsWith('+92')) {
+            displayPhone = displayPhone.slice(3).trim();
+          }
+          dispatch({ type: 'SET_FIELD', field: 'phone', value: displayPhone });
+        }
+      } catch (err) {
+        console.error('Error fetching user data for onboarding:', err);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (state.avatarPreview) {
         URL.revokeObjectURL(state.avatarPreview);
@@ -1192,9 +1225,44 @@ export default function OnboardingPage() {
     };
   }, []);
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('serviqo_onboarded', 'true');
-    router.push('/worker/dashboard?welcome=true');
+  const handleOnboardingComplete = async () => {
+    try {
+      // 1. Update worker profile
+      const profileData = new FormData();
+      profileData.append('name', state.displayName);
+      profileData.append('bio', state.bio);
+      profileData.append('city', state.city);
+      profileData.append('address', state.area);
+      profileData.append('experience', state.yearsExperience === 'less-1' ? '0' : (parseInt(state.yearsExperience) || 1).toString());
+      if (state.avatar) profileData.append('profilePicture', state.avatar);
+      await api.updateWorkerProfile(profileData);
+
+      // 2. Update skills
+      await api.updateSkills({
+        skills: state.skills,
+        serviceCategory: state.primaryCategory,
+        hourlyRate: Number(state.hourlyRate),
+      });
+
+      // 3. Upload portfolio images
+      for (const item of state.portfolioItems) {
+        if (item.file) {
+          const fd = new FormData();
+          fd.append('image', item.file);
+          fd.append('title', item.caption || 'Portfolio');
+          await api.addPortfolioItem(fd);
+        }
+      }
+
+      // 4. Update availability
+      const availability = buildAvailability(state.workingDays, state.startTime, state.endTime);
+      await api.updateAvailability({ availability, responseTime: state.responseTime });
+
+      router.push('/worker/dashboard?welcome=true');
+    } catch (err) {
+      console.error('Onboarding error:', err.message);
+      router.push('/worker/dashboard');
+    }
   };
 
   return (
