@@ -1,7 +1,8 @@
 const User = require('../models/User');
+const Job = require('../models/Job');
 
 async function getProfile(req, res) {
-  const user = await User.findById(req.user._id).select('-password -otp -otpExpiry');
+  const user = await User.findById(req.user._id).select('-password -otp -otpExpiry').lean();
   if (!user) {
     // Hardcoded admin path: no DB record exists yet, return a synthetic admin profile
     // so the navbar/session UI can render correctly.
@@ -18,6 +19,12 @@ async function getProfile(req, res) {
     }
     return res.status(404).json({ error: 'User not found' });
   }
+
+  // Calculate jobs posted for customers
+  if (user.role === 'customer') {
+    user.jobsPosted = await Job.countDocuments({ customer: user._id });
+  }
+
   return res.json({ user });
 }
 

@@ -95,33 +95,24 @@ export const rejectVerification = (userId, body) => request(`/admin/verification
 export const getAdminDisputes = () => request('/admin/disputes');
 export const resolveDispute = (disputeId, body) => request(`/admin/disputes/${disputeId}/resolve`, { method: 'PUT', body: JSON.stringify(body) });
 
-/**
- * Robust helper to resolve image URLs.
- * Handles: 
- * 1. Absolute URLs (Cloudinary)
- * 2. Local backend paths (/uploads/...)
- * 3. Broken/Legacy paths (/uploads/jobs/serviqo/...)
- */
+const CLOUDINARY_CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
 export const getImageUrl = (path) => {
   if (!path) return null;
-  
-  // If it's already a full URL (Cloudinary), return as is
   if (path.startsWith('http')) return path;
-  
-  // Handle legacy broken paths that incorrectly included 'serviqo/jobs' 
-  // but were prefixed with /uploads/jobs/
-  if (path.includes('serviqo/')) {
-    // These are likely Cloudinary public IDs that were saved incorrectly.
-    // If they don't start with http, they are broken.
-    // Best we can do is try to point them to the backend or return null if totally invalid.
-    return `${BASE.replace('/api', '')}${path}`;
+
+  // Legacy paths stored Cloudinary public IDs (serviqo/<folder>/<id>),
+  // sometimes erroneously prefixed with /uploads/jobs/. Extract the public ID
+  // and rebuild the Cloudinary URL.
+  const serviqoIdx = path.indexOf('serviqo/');
+  if (serviqoIdx !== -1 && CLOUDINARY_CLOUD) {
+    const publicId = path.slice(serviqoIdx);
+    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/${publicId}`;
   }
 
-  // If it's a relative path starting with /uploads, point to backend
   if (path.startsWith('/uploads')) {
     return `${BASE.replace('/api', '')}${path}`;
   }
 
-  // Fallback
   return path;
 };

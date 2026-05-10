@@ -76,7 +76,7 @@ export default function WorkerAvailabilityPage() {
         </div>
         <button 
           onClick={handleSave}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
+          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
         >
           {isSaving ? 'Saving...' : 'Save Schedule'}
         </button>
@@ -191,7 +191,7 @@ export default function WorkerAvailabilityPage() {
                     onClick={() => setResponseTime(time)}
                     className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all ${
                       responseTime === time
-                        ? 'bg-primary-500 text-white shadow-md'
+                        ? 'bg-primary text-white shadow-md'
                         : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
                     }`}
                   >

@@ -83,7 +83,7 @@ export default function WorkerProfilePage() {
         <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 disabled:bg-primary-300 transition-all shadow-md shadow-primary-500/20"
+          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-600 disabled:bg-primary-300 transition-all shadow-md shadow-primary-500/20"
         >
           {isSaving ? (
             <>

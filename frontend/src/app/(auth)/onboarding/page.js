@@ -16,6 +16,8 @@ import {
   Trash2,
   GripVertical,
   Pencil,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import { useReducer, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -78,12 +80,22 @@ const initialState = {
   endTime: '',
   instantBooking: false,
   responseTime: '',
+  cnicFront: null,
+  cnicFrontPreview: '',
+  cnicBack: null,
+  cnicBackPreview: '',
 };
 
 const reducer = (state, action) => {
   switch (action.type) {
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value };
+    case 'SET_CNIC':
+      return { 
+        ...state, 
+        [action.side === 'front' ? 'cnicFront' : 'cnicBack']: action.file,
+        [action.side === 'front' ? 'cnicFrontPreview' : 'cnicBackPreview']: action.preview
+      };
     case 'ADD_CERTIFICATION':
       return {
         ...state,
@@ -1106,11 +1118,11 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
         {/* Action Row */}
         <div className="flex justify-between gap-3 mt-8">
           <button
-            onClick={() => dispatch({ type: 'GO_BACK_STEP', step: 3 })}
+            onClick={() => dispatch({ type: 'GO_BACK_STEP', step: 4 })}
             className="flex items-center gap-2 px-6 py-3 text-primary font-medium hover:bg-primary-subtle rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-            Back to Portfolio
+            Back to Identity
           </button>
           <button
             onClick={handleComplete}
@@ -1126,12 +1138,174 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
   );
 };
 
+const Step4Verification = ({ state, dispatch, onNext, onBack }) => {
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  const validateStep4 = () => {
+    const newErrors = {};
+    if (!state.cnicFront) newErrors.cnicFront = 'Front side of CNIC is required';
+    if (!state.cnicBack) newErrors.cnicBack = 'Back side of CNIC is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (!validateStep4()) return;
+    setIsLoading(true);
+    setTimeout(() => {
+      dispatch({ type: 'ADVANCE_STEP', step: 5 });
+      setIsLoading(false);
+    }, 500);
+  };
+
+  const handleFileUpload = (side) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          setErrors({ [side === 'front' ? 'cnicFront' : 'cnicBack']: 'Image must be under 5MB' });
+          return;
+        }
+        const preview = URL.createObjectURL(file);
+        dispatch({ type: 'SET_CNIC', side, file, preview });
+        setErrors((prev) => {
+          const { [side === 'front' ? 'cnicFront' : 'cnicBack']: _, ...rest } = prev;
+          return rest;
+        });
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="bg-surface rounded-3xl shadow-lg p-8 md:p-12 border-2 border-primary/10">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <ShieldCheck className="w-7 h-7 text-primary" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-text-primary tracking-tight">Identity Verification</h2>
+            <p className="text-sm text-text-secondary font-medium">Verify your identity to build trust with customers.</p>
+          </div>
+        </div>
+
+        <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl mb-8 flex gap-4">
+          <Lock className="w-6 h-6 text-blue-600 shrink-0 mt-1" />
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-blue-900">Your data is safe and encrypted</p>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              Identity documents are used strictly for verification. We never share your sensitive personal information with anyone.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          {/* CNIC Front */}
+          <div className="space-y-3">
+            <label className="text-sm font-black text-text-primary uppercase tracking-widest ml-1">CNIC Front Side</label>
+            <button
+              onClick={() => handleFileUpload('front')}
+              className={`w-full aspect-[1.6/1] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all relative overflow-hidden group ${
+                state.cnicFrontPreview ? 'border-primary' : 'border-border bg-neutral-50 hover:border-primary hover:bg-primary-subtle'
+              }`}
+            >
+              {state.cnicFrontPreview ? (
+                <>
+                  <img src={state.cnicFrontPreview} alt="CNIC Front" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 bg-white rounded-xl shadow-sm">
+                    <Camera className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-bold text-text-tertiary uppercase tracking-wider">Capture Front</span>
+                </>
+              )}
+            </button>
+            {errors.cnicFront && <p className="text-[10px] text-error font-bold uppercase tracking-wide ml-1">{errors.cnicFront}</p>}
+          </div>
+
+          {/* CNIC Back */}
+          <div className="space-y-3">
+            <label className="text-sm font-black text-text-primary uppercase tracking-widest ml-1">CNIC Back Side</label>
+            <button
+              onClick={() => handleFileUpload('back')}
+              className={`w-full aspect-[1.6/1] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all relative overflow-hidden group ${
+                state.cnicBackPreview ? 'border-primary' : 'border-border bg-neutral-50 hover:border-primary hover:bg-primary-subtle'
+              }`}
+            >
+              {state.cnicBackPreview ? (
+                <>
+                  <img src={state.cnicBackPreview} alt="CNIC Back" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 bg-white rounded-xl shadow-sm">
+                    <Camera className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-xs font-bold text-text-tertiary uppercase tracking-wider">Capture Back</span>
+                </>
+              )}
+            </button>
+            {errors.cnicBack && <p className="text-[10px] text-error font-bold uppercase tracking-wide ml-1">{errors.cnicBack}</p>}
+          </div>
+        </div>
+
+        <div className="mt-10 pt-8 border-t border-neutral-100 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-tight">Original documents only</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-tight">Full card visible with all 4 corners</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between gap-3 mt-10">
+          <button
+            onClick={() => dispatch({ type: 'GO_BACK_STEP', step: 3 })}
+            className="flex items-center gap-2 px-6 py-3 text-primary font-black uppercase tracking-widest hover:bg-primary-subtle rounded-xl transition-colors text-xs"
+          >
+            <ArrowLeft className="w-4 h-4" strokeWidth={3} />
+            Back
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={isLoading || !state.cnicFront || !state.cnicBack}
+            className="flex items-center gap-2 px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-primary-hover disabled:bg-primary-light disabled:text-text-tertiary transition-all shadow-xl shadow-primary/20 text-xs"
+          >
+            Verify & Continue
+            <ArrowRight className="w-4 h-4" strokeWidth={3} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StepIndicatorOnboarding = ({ currentStep = 1, completedSteps = [] }) => {
   const steps = [
     { id: 1, label: 'Profile', icon: User },
     { id: 2, label: 'Skills', icon: Wrench },
     { id: 3, label: 'Portfolio', icon: ImageIcon },
-    { id: 4, label: 'Availability', icon: Calendar },
+    { id: 4, label: 'Identity', icon: ShieldCheck },
+    { id: 5, label: 'Availability', icon: Calendar },
   ];
 
   return (
@@ -1219,11 +1393,17 @@ export default function OnboardingPage() {
       if (state.avatarPreview) {
         URL.revokeObjectURL(state.avatarPreview);
       }
+      if (state.cnicFrontPreview) {
+        URL.revokeObjectURL(state.cnicFrontPreview);
+      }
+      if (state.cnicBackPreview) {
+        URL.revokeObjectURL(state.cnicBackPreview);
+      }
       state.portfolioItems.forEach((item) => {
         URL.revokeObjectURL(item.preview);
       });
     };
-  }, []);
+  }, [state.avatarPreview, state.cnicFrontPreview, state.cnicBackPreview, state.portfolioItems]);
 
   const handleOnboardingComplete = async () => {
     try {
@@ -1254,7 +1434,13 @@ export default function OnboardingPage() {
         }
       }
 
-      // 4. Update availability
+      // 4. Upload CNIC
+      const cnicData = new FormData();
+      cnicData.append('cnicFront', state.cnicFront);
+      cnicData.append('cnicBack', state.cnicBack);
+      await api.uploadCnic(cnicData);
+
+      // 5. Update availability
       const availability = buildAvailability(state.workingDays, state.startTime, state.endTime);
       await api.updateAvailability({ availability, responseTime: state.responseTime });
 
@@ -1288,6 +1474,9 @@ export default function OnboardingPage() {
             <Step3Portfolio state={state} dispatch={dispatch} onNext={() => {}} onBack={() => {}} />
           )}
           {state.currentStep === 4 && (
+            <Step4Verification state={state} dispatch={dispatch} onNext={() => {}} onBack={() => {}} />
+          )}
+          {state.currentStep === 5 && (
             <Step4Availability
               state={state}
               dispatch={dispatch}

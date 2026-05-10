@@ -53,7 +53,7 @@ export default function WorkerSkillsPage() {
         </div>
         <button 
           onClick={handleSave}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
+          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
         >
           {isSaving ? 'Saving...' : 'Save Changes'}
         </button>

@@ -175,13 +175,13 @@ export default function CustomerProfilePage() {
           <Card className="p-6 border-neutral-200/60 bg-primary-900 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12"></div>
             <h4 className="font-black text-sm uppercase tracking-widest text-primary-300">Member Since</h4>
-            <p className="text-lg font-bold mt-1">
+            <p className="text-navy-500 text-lg font-bold mt-1">
               {formData.createdAt ? new Date(formData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
             </p>
             <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center">
               <div>
-                <p className="text-[10px] font-black uppercase text-primary-300">Jobs Posted</p>
-                <p className="text-xl font-black">{formData.jobsPosted}</p>
+                <p className="text-[10px] font-black uppercase text-primary">Jobs Posted</p>
+                <p className="text-xl font-black text-navy-500">{formData.jobsPosted}</p>
               </div>
             </div>
           </Card>

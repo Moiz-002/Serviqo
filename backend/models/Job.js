@@ -22,6 +22,8 @@ const jobSchema = new Schema({
   totalBids: { type: Number, default: 0 },
 }, { timestamps: true });
 
+jobSchema.index({ customer: 1 });
+
 const Job = model('Job', jobSchema);
 
 module.exports = Job;
