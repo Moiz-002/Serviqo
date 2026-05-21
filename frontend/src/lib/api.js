@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5000/api';
+const BASE = 'https://serviqobackend-8kv3yh1k.b4a.run/api';
 
 async function request(path, { headers: extraHeaders, body, ...rest } = {}) {
   const isFormData = body instanceof FormData;

@@ -23,8 +23,10 @@ connectDatabase(process.env.MONGODB_URI)
   .catch((err) => console.error('MongoDB connection failed:', err.message));
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['https://serviqo-three.vercel.app', 'http://localhost:3000'], // Update with your frontend URL
   credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
