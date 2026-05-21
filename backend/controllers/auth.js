@@ -8,8 +8,20 @@ function generateOtp() {
 
 function setAuthCookies(res, token, user) {
   const maxAge = 7 * 24 * 60 * 60 * 1000;
-  res.cookie('token', token, { httpOnly: true, maxAge });
-  res.cookie('serviqo_session', `${user.role}:${user._id}`, { maxAge });
+  const isProd = process.env.NODE_ENV === 'production';
+
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge,
+  });
+
+  res.cookie('serviqo_session', `${user.role}:${user._id}`, {
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge,
+  });
 }
 
 async function handleSignup(req, res) {
