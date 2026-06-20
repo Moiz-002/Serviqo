@@ -2,6 +2,45 @@
 // Accept multiple env var names for backward compatibility.
 const BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const CLIENT_SESSION_COOKIE = 'serviqo_session';
+const CLIENT_SESSION_MAX_AGE = 7 * 24 * 60 * 60;
+
+function setClientSessionCookie(user) {
+  if (typeof document === 'undefined' || !user?._id || !user?.role) return;
+
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const cookieParts = [
+    `${CLIENT_SESSION_COOKIE}=${encodeURIComponent(`${user.role}:${user._id}`)}`,
+    'Path=/',
+    `Max-Age=${CLIENT_SESSION_MAX_AGE}`,
+    'SameSite=Lax',
+  ];
+
+  if (secure) {
+    cookieParts.push('Secure');
+  }
+
+  document.cookie = cookieParts.join('; ');
+}
+
+function clearClientSessionCookie() {
+  if (typeof document === 'undefined') return;
+
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const cookieParts = [
+    `${CLIENT_SESSION_COOKIE}=`,
+    'Path=/',
+    'Max-Age=0',
+    'SameSite=Lax',
+  ];
+
+  if (secure) {
+    cookieParts.push('Secure');
+  }
+
+  document.cookie = cookieParts.join('; ');
+}
+
 async function request(path, { headers: extraHeaders, body, ...rest } = {}) {
   const isFormData = body instanceof FormData;
   const headers = isFormData
@@ -28,13 +67,35 @@ async function request(path, { headers: extraHeaders, body, ...rest } = {}) {
 // Auth
 export const signup = (body) => request('/auth/signup', { method: 'POST', body: JSON.stringify(body) });
 export const checkAvailability = (body) => request('/auth/check-availability', { method: 'POST', body: JSON.stringify(body) });
-export const verifyOtp = (body) => request('/auth/verify-otp', { method: 'POST', body: JSON.stringify(body) });
-export const login = (body) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+export const verifyOtp = async (body) => {
+  const data = await request('/auth/verify-otp', { method: 'POST', body: JSON.stringify(body) });
+  setClientSessionCookie(data.user);
+  return data;
+};
+export const login = async (body) => {
+  const data = await request('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+  setClientSessionCookie(data.user);
+  return data;
+};
 export const verifyAdminCredentials = (body) => request('/auth/admin-login/verify-credentials', { method: 'POST', body: JSON.stringify(body) });
-export const adminLogin = (body) => request('/auth/admin-login', { method: 'POST', body: JSON.stringify(body) });
+export const adminLogin = async (body) => {
+  const data = await request('/auth/admin-login', { method: 'POST', body: JSON.stringify(body) });
+  setClientSessionCookie(data.user);
+  return data;
+};
 export const requestLoginOtp = (body) => request('/auth/request-login-otp', { method: 'POST', body: JSON.stringify(body) });
-export const verifyLoginOtp = (body) => request('/auth/verify-login-otp', { method: 'POST', body: JSON.stringify(body) });
-export const logout = () => request('/auth/logout', { method: 'POST' });
+export const verifyLoginOtp = async (body) => {
+  const data = await request('/auth/verify-login-otp', { method: 'POST', body: JSON.stringify(body) });
+  setClientSessionCookie(data.user);
+  return data;
+};
+export const logout = async () => {
+  try {
+    return await request('/auth/logout', { method: 'POST' });
+  } finally {
+    clearClientSessionCookie();
+  }
+};
 export const forgotPassword = (body) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(body) });
 export const resetPassword = (body) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) });
 export const resendOtp = (body) => request('/auth/resend-otp', { method: 'POST', body: JSON.stringify(body) });
