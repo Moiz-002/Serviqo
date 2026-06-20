@@ -1,4 +1,6 @@
-const BASE = 'https://serviqobackend-8kv3yh1k.b4a.run/api';
+// Use environment variable for API base so local/dev/prod can differ.
+// Accept multiple env var names for backward compatibility.
+const BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 async function request(path, { headers: extraHeaders, body, ...rest } = {}) {
   const isFormData = body instanceof FormData;
@@ -95,7 +97,13 @@ export const rejectVerification = (userId, body) => request(`/admin/verification
 export const getAdminDisputes = () => request('/admin/disputes');
 export const resolveDispute = (disputeId, body) => request(`/admin/disputes/${disputeId}/resolve`, { method: 'PUT', body: JSON.stringify(body) });
 
-const CLOUDINARY_CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_CLOUD =
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  process.env.NEXT_PUBLIC_CLOUD_NAME ||
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD ||
+  process.env.NEXT_PUBLIC_CLOUDINARY_NAME ||
+  process.env.CLOUD_NAME ||
+  process.env.NEXT_PUBLIC_CLOUD;
 
 export const getImageUrl = (path) => {
   if (!path) return null;
@@ -105,13 +113,23 @@ export const getImageUrl = (path) => {
   // sometimes erroneously prefixed with /uploads/jobs/. Extract the public ID
   // and rebuild the Cloudinary URL.
   const serviqoIdx = path.indexOf('serviqo/');
-  if (serviqoIdx !== -1 && CLOUDINARY_CLOUD) {
-    const publicId = path.slice(serviqoIdx);
-    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/${publicId}`;
+  if (serviqoIdx !== -1) {
+    if (CLOUDINARY_CLOUD) {
+      const publicId = path.slice(serviqoIdx);
+      return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/${publicId}`;
+    }
+    // Cloud name not configured for client — fallback to returning stored path
+    // (could be a public id which cannot be resolved without cloud name).
+    // Warn so devs notice misconfiguration.
+    // eslint-disable-next-line no-console
+    console.warn('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME not set — cannot construct Cloudinary URL for', path);
+    return path;
   }
 
   if (path.startsWith('/uploads')) {
-    return `${BASE.replace('/api', '')}${path}`;
+    // If uploads stored locally, point to the server origin. If BASE contains /api,
+    // strip it so `/uploads/...` maps to the server origin + path.
+    return `${BASE.replace(/\/api\/?$/, '')}${path}`;
   }
 
   return path;

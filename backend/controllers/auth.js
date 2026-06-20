@@ -206,8 +206,10 @@ async function handleVerifyAdminCredentials(req, res) {
 }
 
 async function handleLogout(req, res) {
-  res.clearCookie('token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
-  res.clearCookie('serviqo_session', { secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+  const isProd = process.env.NODE_ENV === 'production';
+  // Clear cookies using the same attributes they were set with.
+  res.clearCookie('token', { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' });
+  res.clearCookie('serviqo_session', { secure: isProd, sameSite: isProd ? 'none' : 'lax' });
   return res.json({ message: 'Logged out successfully' });
 }
 

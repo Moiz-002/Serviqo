@@ -23,7 +23,7 @@ connectDatabase(process.env.MONGODB_URI)
   .catch((err) => console.error('MongoDB connection failed:', err.message));
 
 app.use(cors({
-  origin: ['https://serviqo-three.vercel.app', 'http://localhost:3000'], // Update with your frontend URL
+  origin: [process.env.FRONTEND_ORIGIN || 'http://localhost:3000', 'https://serviqo-three.vercel.app'],
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization']
@@ -49,6 +49,7 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`Serviqo backend running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Serviqo backend running on port ${PORT}`);
 });

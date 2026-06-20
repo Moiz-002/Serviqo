@@ -215,10 +215,10 @@ export default function LoginPage() {
           </form>
 
           {/* Google OAuth */}
-          <button className="w-full py-2.5 border border-border rounded-full hover:bg-neutral-100 cursor-pointer transition-colors flex items-center justify-center gap-2 font-semibold text-text-primary shadow-sm hover:shadow-md">     
+          {/* <button className="w-full py-2.5 border border-border rounded-full hover:bg-neutral-100 cursor-pointer transition-colors flex items-center justify-center gap-2 font-semibold text-text-primary shadow-sm hover:shadow-md">     
               <Image src="/google_logo.png" alt="Google" width={18} height={18} />
             Continue with Google
-          </button>
+          </button> */}
 
           {/* Divider */}
           <div className="flex items-center gap-3">

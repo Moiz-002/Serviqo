@@ -337,6 +337,20 @@ const Navbar = ({ user, loading, onLogout }) => {
 // HERO SECTION
 // ============================================================================
 const HeroSection = () => {
+  const router = useRouter();
+  const [query, setQuery] = useState('');
+  const [location, setLocation] = useState('');
+
+  const handleSearch = () => {
+    const q = (query || '').trim();
+    const loc = (location || '').trim();
+    const params = new URLSearchParams();
+    if (q) params.set('query', q);
+    if (loc) params.set('location', loc);
+    const qs = params.toString();
+    router.push(`/workers${qs ? `?${qs}` : ''}`);
+  };
+
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-neutral-50">
       {/* Decorative Background Glows */}
@@ -377,7 +391,10 @@ const HeroSection = () => {
                   <input
                     type="text"
                     placeholder="What do you need help with?"
-                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base border-0"
                   />
                 </div>
                 <div className="flex-1 min-w-[200px] flex items-center gap-3 px-4 py-4 bg-neutral-50 rounded-2xl border border-transparent focus-within:border-cyan-500 transition-all">
@@ -385,10 +402,13 @@ const HeroSection = () => {
                   <input
                     type="text"
                     placeholder="Enter city or area"
-                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base border-0"
                   />
                 </div>
-                <button className="w-full sm:w-auto sm:px-10 py-4 bg-navy-600 text-white font-black rounded-2xl hover:bg-navy-700 shadow-lg hover:shadow-cyan-100 transition-all active:scale-95 cursor-pointer">
+                <button onClick={handleSearch} className="w-full sm:w-auto sm:px-10 py-4 bg-navy-600 text-white font-black rounded-2xl hover:bg-navy-700 shadow-lg hover:shadow-cyan-100 transition-all active:scale-95 cursor-pointer border-0">
                   Find Help
                 </button>
               </div>
@@ -721,22 +741,22 @@ const ServiceCategoriesSection = () => {
               From quick fixes to major renovations, find verified professionals who get the job done right.
             </p>
           </div>
-          <button className="px-8 py-4 bg-white border-2 border-navy-100 rounded-2xl font-bold text-navy-900 hover:border-cyan-500 hover:text-cyan-600 transition-all flex items-center gap-2 group shadow-sm">
+          <Link href="#services" className="px-8 py-4 bg-white border-2 border-navy-100 rounded-2xl font-bold text-navy-900 hover:border-cyan-500 hover:text-cyan-600 transition-all flex items-center gap-2 group shadow-sm cursor-pointer">
             View All Services
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
+          </Link>
         </div>
 
         {/* Categories Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {categories.map((cat, idx) => {
-            const Icon = cat.icon;
-            return (
-              <a
-                key={idx}
-                href="#browse"
-                className="group relative h-[400px] rounded-[32px] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
-              >
+              {categories.map((cat, idx) => {
+                const Icon = cat.icon;
+                return (
+                  <Link
+                    key={idx}
+                    href={`/workers?category=${encodeURIComponent(cat.name)}`}
+                    className="group relative h-[400px] rounded-[32px] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer"
+                  >
                 {/* Background Image */}
                 <img
                   src={cat.image}
@@ -762,7 +782,7 @@ const ServiceCategoriesSection = () => {
                     <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                   </div>
                 </div>
-              </a>
+                  </Link>
             );
           })}
         </div>
@@ -941,12 +961,12 @@ const ForProfessionalsSection = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <button className="px-10 py-5 bg-cyan-500 text-navy-900 font-black rounded-2xl hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all transform hover:-translate-y-1">
-                Join as a Professional
-              </button>
-              <button className="px-10 py-5 border-2 border-white/20 text-white font-black rounded-2xl hover:bg-white/10 transition-all">
-                Learn Success Stories
-              </button>
+                <Link href="/signup?role=worker" className="px-10 py-5 bg-cyan-500 text-navy-900 font-black rounded-2xl hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all transform hover:-translate-y-1 cursor-pointer">
+                  Join as a Professional
+                </Link>
+                <Link href="/success-stories" className="px-10 py-5 border-2 border-white/20 text-white font-black rounded-2xl hover:bg-white/10 transition-all cursor-pointer">
+                  Learn Success Stories
+                </Link>
             </div>
           </div>
 
