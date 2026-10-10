@@ -67,6 +67,23 @@ Start the development server:
 npm run dev
 ```
 
+### WhatsApp OTP setup
+
+The backend can deliver signup, login, password-reset, and resend OTPs through a linked WhatsApp account using Baileys. Add these variables to `backend/.env`:
+
+```env
+WHATSAPP_OTP_ENABLED=true
+WHATSAPP_AUTH_DIR=./auth_info_baileys
+```
+
+Start the backend and scan the QR code printed in the terminal from WhatsApp on the secondary phone:
+
+1. Open WhatsApp on the phone that will send OTPs.
+2. Go to **Settings** → **Linked devices** → **Link a device**.
+3. Scan the QR code shown by the backend.
+
+The linked session is stored in `backend/auth_info_baileys/` and is ignored by Git. Keep the WhatsApp account active and do not share this directory. Set `WHATSAPP_OTP_ENABLED=false` when WhatsApp delivery is not configured.
+
 ### Frontend setup
 
 ```bash
@@ -77,7 +94,7 @@ npm install
 Create a `.env.local` file in the `frontend` directory:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_BASE=http://localhost:5000/api
 ```
 
 Start the development server:

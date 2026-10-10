@@ -1,9 +1,20 @@
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const { createToken } = require('../services/auth');
+const { sendWhatsAppOtp } = require('../services/whatsapp');
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function deliverOtp(phone, otp) {
+  try {
+    await sendWhatsAppOtp(phone, otp);
+    return null;
+  } catch (error) {
+    console.error('WhatsApp OTP delivery failed:', error.message);
+    return 'OTP delivery is temporarily unavailable. Please try again.';
+  }
 }
 
 function setAuthCookies(res, token, user) {
@@ -44,7 +55,8 @@ async function handleSignup(req, res) {
     otpExpiry,
   });
 
-  console.log(`OTP for ${phone}: ${otp}`);
+  const deliveryError = await deliverOtp(phone, otp);
+  if (deliveryError) return res.status(503).json({ error: deliveryError });
 
   return res.status(201).json({
     message: 'Account created. Please verify your phone number.',
@@ -227,7 +239,8 @@ async function handleForgotPassword(req, res) {
   user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  console.log(`Password reset OTP for ${identifier}: ${otp}`);
+  const deliveryError = await deliverOtp(user.phone, otp);
+  if (deliveryError) return res.status(503).json({ error: deliveryError });
 
   return res.json({
     message: 'OTP sent for password reset',
@@ -263,7 +276,8 @@ async function handleResendOtp(req, res) {
   user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  console.log(`Resent OTP for ${user.phone}: ${otp}`);
+  const deliveryError = await deliverOtp(user.phone, otp);
+  if (deliveryError) return res.status(503).json({ error: deliveryError });
 
   return res.json({
     message: 'OTP resent',
@@ -288,7 +302,8 @@ async function handleRequestLoginOtp(req, res) {
   user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  console.log(`Login OTP for ${phone}: ${otp}`);
+  const deliveryError = await deliverOtp(phone, otp);
+  if (deliveryError) return res.status(503).json({ error: deliveryError });
 
   return res.json({
     message: 'OTP sent successfully',

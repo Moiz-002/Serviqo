@@ -15,8 +15,13 @@ const messageRouter = require('./routes/message');
 const reviewRouter = require('./routes/review');
 const adminRouter = require('./routes/admin');
 const disputeRouter = require('./routes/dispute');
+const { startWhatsAppOtp } = require('./services/whatsapp');
 
 const app = express();
+
+startWhatsAppOtp().catch((err) => {
+  console.error('WhatsApp OTP service failed to start:', err.message);
+});
 
 connectDatabase(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
