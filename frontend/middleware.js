@@ -7,7 +7,16 @@ export function middleware(request) {
   // Parse session cookie: format "role:userId"
   let userRole = null;
   if (sessionCookie) {
-    const [role] = sessionCookie.split(':');
+    let decodedSession;
+    try {
+      decodedSession = decodeURIComponent(sessionCookie);
+    } catch {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    const [role, userId] = decodedSession.split(':');
+    if (!userId || !/^[a-f\d]{24}$/i.test(userId)) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
     userRole = role;
   }
 
@@ -21,6 +30,7 @@ export function middleware(request) {
     // Protect customer/worker dashboards -> redirect to /login
     if (
       pathname.startsWith('/customer/') ||
+      pathname === '/worker' ||
       pathname.startsWith('/worker/') ||
       pathname === '/onboarding'
     ) {
@@ -75,7 +85,7 @@ export function middleware(request) {
     }
 
     // Protect worker routes — only workers can access
-    if (pathname.startsWith('/worker/') && userRole !== 'worker') {
+    if ((pathname === '/worker' || pathname.startsWith('/worker/')) && userRole !== 'worker') {
       const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/customer/dashboard';
       return NextResponse.redirect(new URL(dashboard, request.url));
     }

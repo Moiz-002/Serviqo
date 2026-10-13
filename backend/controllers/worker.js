@@ -72,14 +72,26 @@ async function getWorkerDashboard(req, res) {
 async function updateWorkerProfile(req, res) {
   const { bio, experience, hourlyRate, serviceCategory, city, address, name, email } = req.body;
   const updates = {};
-  if (name) updates.name = name;
-  if (email) updates.email = email;
+  if (name !== undefined) updates.name = String(name).trim();
+  if (email !== undefined) updates.email = String(email).trim().toLowerCase();
   if (bio !== undefined) updates.bio = bio;
-  if (experience !== undefined && !isNaN(Number(experience))) updates.experience = Number(experience);
-  if (hourlyRate !== undefined) updates.hourlyRate = Number(hourlyRate);
-  if (serviceCategory) updates.serviceCategory = serviceCategory;
-  if (city) updates.city = city;
-  if (address) updates.address = address;
+  if (experience !== undefined) {
+    const value = Number(experience);
+    if (!Number.isFinite(value) || value < 0) {
+      return res.status(400).json({ error: 'Experience must be a non-negative number' });
+    }
+    updates.experience = value;
+  }
+  if (hourlyRate !== undefined) {
+    const value = Number(hourlyRate);
+    if (!Number.isFinite(value) || value < 0) {
+      return res.status(400).json({ error: 'Hourly rate must be a non-negative number' });
+    }
+    updates.hourlyRate = value;
+  }
+  if (serviceCategory !== undefined) updates.serviceCategory = serviceCategory;
+  if (city !== undefined) updates.city = city;
+  if (address !== undefined) updates.address = address;
   
   if (req.file) {
     const currentUser = await User.findById(req.user._id);
@@ -96,33 +108,52 @@ async function updateWorkerProfile(req, res) {
     { new: true, select: '-password -otp -otpExpiry' }
   );
 
+  if (!user) return res.status(404).json({ error: 'Worker not found' });
   return res.json({ message: 'Profile updated', user });
 }
 
 async function updateSkills(req, res) {
   const { skills, serviceCategory, hourlyRate } = req.body;
   const updates = {};
-  if (skills) updates.skills = skills;
-  if (serviceCategory) updates.serviceCategory = serviceCategory;
-  if (hourlyRate !== undefined) updates.hourlyRate = Number(hourlyRate);
+  if (skills !== undefined) {
+    if (!Array.isArray(skills) || skills.some((skill) => typeof skill !== 'string')) {
+      return res.status(400).json({ error: 'Skills must be an array of text values' });
+    }
+    updates.skills = skills.map((skill) => skill.trim()).filter(Boolean);
+  }
+  if (serviceCategory !== undefined) updates.serviceCategory = serviceCategory;
+  if (hourlyRate !== undefined) {
+    const value = Number(hourlyRate);
+    if (!Number.isFinite(value) || value < 0) {
+      return res.status(400).json({ error: 'Hourly rate must be a non-negative number' });
+    }
+    updates.hourlyRate = value;
+  }
   const user = await User.findByIdAndUpdate(
     req.user._id,
     updates,
     { new: true, select: 'skills serviceCategory hourlyRate' }
   );
+  if (!user) return res.status(404).json({ error: 'Worker not found' });
   return res.json({ message: 'Skills updated', user });
 }
 
 async function updateAvailability(req, res) {
   const { availability, responseTime } = req.body;
   const updates = {};
-  if (availability) updates.availability = availability;
-  if (responseTime) updates.responseTime = responseTime;
+  if (availability !== undefined) {
+    if (!availability || typeof availability !== 'object' || Array.isArray(availability)) {
+      return res.status(400).json({ error: 'Availability must be an object' });
+    }
+    updates.availability = availability;
+  }
+  if (responseTime !== undefined) updates.responseTime = responseTime;
   const user = await User.findByIdAndUpdate(
     req.user._id,
     updates,
     { new: true, select: 'availability responseTime' }
   );
+  if (!user) return res.status(404).json({ error: 'Worker not found' });
   return res.json({ message: 'Availability updated', availability: user.availability, responseTime: user.responseTime });
 }
 
@@ -136,15 +167,18 @@ async function addPortfolioItem(req, res) {
     { new: true, select: 'portfolio' }
   );
 
+  if (!user) return res.status(404).json({ error: 'Worker not found' });
   const newItem = user.portfolio[user.portfolio.length - 1];
   return res.status(201).json({ message: 'Portfolio item added', item: newItem });
 }
 
 async function removePortfolioItem(req, res) {
   const user = await User.findById(req.user._id);
+  if (!user) return res.status(404).json({ error: 'Worker not found' });
   const item = user.portfolio.id(req.params.itemId);
+  if (!item) return res.status(404).json({ error: 'Portfolio item not found' });
   
-  if (item && item.image) {
+  if (item.image) {
     const { deleteFromCloudinary } = require('../middlewares/upload');
     await deleteFromCloudinary(item.image);
   }

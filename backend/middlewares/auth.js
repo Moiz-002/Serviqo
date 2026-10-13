@@ -1,7 +1,8 @@
+
 const { verifyToken } = require('../services/auth');
 
 function checkAuth(req, res, next) {
-  const token = req.cookies.token;
+  const token = req.cookies?.token || req.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   const user = verifyToken(token);

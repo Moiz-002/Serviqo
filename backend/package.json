@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon --ignore auth_info_baileys/ app.js"
+    "dev": "nodemon --ignore auth_info_baileys/ app.js",
+    "test": "node --test test"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc14",

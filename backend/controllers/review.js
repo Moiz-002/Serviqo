@@ -4,14 +4,22 @@ const User = require('../models/User');
 
 async function postReview(req, res) {
   const { jobId, rating, comment } = req.body;
+  const numericRating = Number(rating);
+
+  if (!jobId || !Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    return res.status(400).json({ error: 'A whole-number rating from 1 to 5 is required' });
+  }
 
   const job = await Job.findById(jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  if (job.customer.toString() !== req.user._id) {
+  if (job.customer.toString() !== String(req.user._id)) {
     return res.status(403).json({ error: 'Only the job customer can leave a review' });
   }
   if (job.status !== 'completed') {
     return res.status(400).json({ error: 'Can only review completed jobs' });
+  }
+  if (!job.assignedWorker) {
+    return res.status(400).json({ error: 'This job has no assigned worker' });
   }
 
   const existing = await Review.findOne({ job: jobId, customer: req.user._id });
@@ -21,7 +29,7 @@ async function postReview(req, res) {
     job: jobId,
     customer: req.user._id,
     worker: job.assignedWorker,
-    rating: Number(rating),
+    rating: numericRating,
     comment,
   });
 

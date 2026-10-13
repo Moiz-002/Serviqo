@@ -84,6 +84,7 @@ const initialState = {
   cnicFrontPreview: '',
   cnicBack: null,
   cnicBackPreview: '',
+  saveError: '',
 };
 
 const reducer = (state, action) => {
@@ -1420,7 +1421,7 @@ export default function OnboardingPage() {
       // 2. Update skills
       await api.updateSkills({
         skills: state.skills,
-        serviceCategory: state.primaryCategory,
+        serviceCategory: CATEGORIES.find((category) => category.id === state.primaryCategory)?.name || state.primaryCategory,
         hourlyRate: Number(state.hourlyRate),
       });
 
@@ -1447,13 +1448,22 @@ export default function OnboardingPage() {
       router.push('/worker/dashboard?welcome=true');
     } catch (err) {
       console.error('Onboarding error:', err.message);
-      router.push('/worker/dashboard');
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'saveError',
+        value: err.message || 'Unable to save your worker profile. Please try again.',
+      });
     }
   };
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-3xl mx-auto">
+        {state.saveError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm">
+            {state.saveError}
+          </div>
+        )}
         {/* Step Indicator */}
         <div>
           <StepIndicatorOnboarding

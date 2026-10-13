@@ -38,6 +38,13 @@ function setAuthCookies(res, token, user) {
 async function handleSignup(req, res) {
   const { name, phone, email, password, role } = req.body;
 
+  if (!name || !phone || !password) {
+    return res.status(400).json({ error: 'Name, phone, and password are required' });
+  }
+  if (role && !['customer', 'worker'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid account role' });
+  }
+
   const existing = await User.findOne({ phone });
   if (existing) return res.status(400).json({ error: 'Phone number already registered' });
 

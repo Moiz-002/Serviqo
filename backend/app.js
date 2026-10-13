@@ -19,14 +19,6 @@ const { startWhatsAppOtp } = require('./services/whatsapp');
 
 const app = express();
 
-startWhatsAppOtp().catch((err) => {
-  console.error('WhatsApp OTP service failed to start:', err.message);
-});
-
-connectDatabase(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('MongoDB connection failed:', err.message));
-
 app.use(cors({
   origin: [process.env.FRONTEND_ORIGIN || 'http://localhost:3000', 'https://serviqo-three.vercel.app'],
   credentials: true,
@@ -54,7 +46,25 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Serviqo backend running on port ${PORT}`);
-});
+async function startServer() {
+  await connectDatabase(process.env.MONGODB_URI);
+  console.log('MongoDB connected');
+
+  startWhatsAppOtp().catch((err) => {
+    console.error('WhatsApp OTP service failed to start:', err.message);
+  });
+
+  const PORT = process.env.PORT || 5000;
+  return app.listen(PORT, () => {
+    console.log(`Serviqo backend running on port ${PORT}`);
+  });
+}
+
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('Backend startup failed:', err.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { app, startServer };
