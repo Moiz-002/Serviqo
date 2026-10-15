@@ -65,6 +65,7 @@ export default function PostJobPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const steps = [
     { id: 1, label: 'Service' },
@@ -95,6 +96,7 @@ export default function PostJobPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       const formData = new FormData();
       formData.append('title', state.title);
@@ -106,8 +108,9 @@ export default function PostJobPage() {
       formData.append('urgency', state.urgency);
       state.images.forEach(file => formData.append('images', file));
       await api.createJob(formData);
-      router.push('/job/success');
-    } catch {
+      router.push('/customer/success');
+    } catch (err) {
+      setSubmitError(err.message || 'Unable to post your job. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -131,6 +134,11 @@ export default function PostJobPage() {
               Step {state.step} of 5
             </span>
           </div>
+          {submitError && (
+            <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-semibold">
+              {submitError}
+            </div>
+          )}
           
           <div className="flex items-center justify-between relative">
             <div className="absolute top-1/2 left-0 w-full h-1 bg-neutral-200 -translate-y-1/2 -z-10 rounded-full"></div>

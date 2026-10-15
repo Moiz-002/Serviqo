@@ -65,8 +65,19 @@ export default function WorkerDashboard() {
   };
 
   const handleBidSubmit = async () => {
-    if (!bidForm.amount || !bidForm.proposal) {
-      setBidError('Amount and proposal are required.');
+    const amount = Number(bidForm.amount);
+    const proposal = bidForm.proposal.trim();
+    const estimatedDays = bidForm.estimatedDays ? Number(bidForm.estimatedDays) : undefined;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setBidError('Enter a bid amount greater than zero.');
+      return;
+    }
+    if (proposal.length < 10) {
+      setBidError('Your proposal must be at least 10 characters.');
+      return;
+    }
+    if (estimatedDays !== undefined && (!Number.isInteger(estimatedDays) || estimatedDays <= 0)) {
+      setBidError('Estimated days must be a positive whole number.');
       return;
     }
     setIsSubmitting(true);
@@ -74,9 +85,9 @@ export default function WorkerDashboard() {
     try {
       await api.submitBid({
         jobId: bidModal._id,
-        amount: Number(bidForm.amount),
-        proposal: bidForm.proposal,
-        estimatedDays: bidForm.estimatedDays ? Number(bidForm.estimatedDays) : undefined,
+        amount,
+        proposal,
+        estimatedDays,
       });
       setBidSuccess('Bid submitted successfully!');
       api.getMyBids().then((data) => setBids(data.bids || [])).catch(() => {});
@@ -330,14 +341,14 @@ export default function WorkerDashboard() {
                 </div>
 
                 {bidError && (
-                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+                  <div role="alert" className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
                     <AlertCircle className="w-5 h-5 text-red-500" />
                     <p className="text-sm text-red-700 font-bold">{bidError}</p>
                   </div>
                 )}
                 
                 {bidSuccess && (
-                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+                  <div role="status" className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
                     <CheckCircle className="w-5 h-5 text-emerald-500" />
                     <p className="text-sm text-emerald-700 font-bold">{bidSuccess}</p>
                   </div>

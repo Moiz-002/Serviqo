@@ -1,16 +1,38 @@
 const Job = require('../models/Job');
 
+function validateJobInput({ title, description, category, budgetRange, urgency, city, area }) {
+  const required = { title, description, category, budgetRange, urgency, city, area };
+  const missing = Object.entries(required)
+    .filter(([, value]) => typeof value !== 'string' || !value.trim())
+    .map(([field]) => field);
+
+  if (missing.length) return `Missing required fields: ${missing.join(', ')}`;
+  if (title.trim().length < 5 || title.trim().length > 120) {
+    return 'Title must be between 5 and 120 characters';
+  }
+  if (description.trim().length < 20 || description.trim().length > 5000) {
+    return 'Description must be between 20 and 5,000 characters';
+  }
+  if (city.trim().length > 100 || area.trim().length > 150) {
+    return 'Location fields are too long';
+  }
+  return null;
+}
+
 async function createJob(req, res) {
   const { title, description, category, budgetRange, urgency, city, area } = req.body;
+  const validationError = validateJobInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
   const images = req.files ? req.files.map(f => f.path) : [];
 
   const job = await Job.create({
-    title,
-    description,
-    category,
-    budgetRange,
-    urgency,
-    location: { city, area },
+    title: title.trim(),
+    description: description.trim(),
+    category: category.trim(),
+    budgetRange: budgetRange.trim(),
+    urgency: urgency.trim(),
+    location: { city: city.trim(), area: area.trim() },
     customer: req.user._id,
     images,
   });
@@ -20,6 +42,8 @@ async function createJob(req, res) {
 
 async function getJobs(req, res) {
   const { status, category, city, q, page = 1, limit = 10 } = req.query;
+  const pageNumber = Math.max(Number.parseInt(page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
   const filter = {};
 
   if (req.user.role === 'customer') {
@@ -36,13 +60,13 @@ async function getJobs(req, res) {
   const jobs = await Job.find(filter)
     .populate('customer', 'name profilePicture city')
     .populate('assignedWorker', 'name profilePicture rating')
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
+    .skip((pageNumber - 1) * pageSize)
+    .limit(pageSize)
     .sort({ createdAt: -1 });
 
   const total = await Job.countDocuments(filter);
 
-  return res.json({ jobs, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+  return res.json({ jobs, total, page: pageNumber, totalPages: Math.ceil(total / pageSize) });
 }
 
 async function getJobById(req, res) {
@@ -52,6 +76,12 @@ async function getJobById(req, res) {
     .populate('acceptedBid');
 
   if (!job) return res.status(404).json({ error: 'Job not found' });
+  const userId = String(req.user._id);
+  const isOwner = String(job.customer._id || job.customer) === userId;
+  const isAssignedWorker = job.assignedWorker && String(job.assignedWorker._id || job.assignedWorker) === userId;
+  if (req.user.role !== 'admin' && !isOwner && !isAssignedWorker && !(req.user.role === 'worker' && job.status === 'open')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
 
   return res.json({ job });
 }
@@ -59,7 +89,7 @@ async function getJobById(req, res) {
 async function updateJob(req, res) {
   const job = await Job.findById(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  if (job.customer.toString() !== req.user._id) {
+  if (job.customer.toString() !== String(req.user._id)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (job.status !== 'open') {
@@ -67,16 +97,27 @@ async function updateJob(req, res) {
   }
 
   const { title, description, category, budgetRange, urgency, city, area } = req.body;
+  const validationError = validateJobInput({
+    title: title ?? job.title,
+    description: description ?? job.description,
+    category: category ?? job.category,
+    budgetRange: budgetRange ?? job.budgetRange,
+    urgency: urgency ?? job.urgency,
+    city: city ?? job.location.city,
+    area: area ?? job.location.area,
+  });
+  if (validationError) return res.status(400).json({ error: validationError });
+
   const updates = {};
-  if (title) updates.title = title;
-  if (description) updates.description = description;
-  if (category) updates.category = category;
-  if (budgetRange) updates.budgetRange = budgetRange;
-  if (urgency) updates.urgency = urgency;
-  if (city || area) {
+  if (title !== undefined) updates.title = title.trim();
+  if (description !== undefined) updates.description = description.trim();
+  if (category !== undefined) updates.category = category.trim();
+  if (budgetRange !== undefined) updates.budgetRange = budgetRange.trim();
+  if (urgency !== undefined) updates.urgency = urgency.trim();
+  if (city !== undefined || area !== undefined) {
     updates.location = {
-      city: city || job.location.city,
-      area: area || job.location.area,
+      city: city !== undefined ? city.trim() : job.location.city,
+      area: area !== undefined ? area.trim() : job.location.area,
     };
   }
 
@@ -87,7 +128,7 @@ async function updateJob(req, res) {
 async function deleteJob(req, res) {
   const job = await Job.findById(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  if (job.customer.toString() !== req.user._id.toString()) {
+  if (job.customer.toString() !== String(req.user._id)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (job.status !== 'open') {
@@ -109,7 +150,7 @@ async function deleteJob(req, res) {
 async function markJobComplete(req, res) {
   const job = await Job.findById(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  if (job.customer.toString() !== req.user._id) {
+  if (job.customer.toString() !== String(req.user._id)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (job.status !== 'active') {

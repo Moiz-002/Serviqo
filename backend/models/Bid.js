@@ -13,6 +13,8 @@ const bidSchema = new Schema({
   },
 }, { timestamps: true });
 
+bidSchema.index({ job: 1, worker: 1 }, { unique: true });
+
 const Bid = model('Bid', bidSchema);
 
 module.exports = Bid;

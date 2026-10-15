@@ -52,7 +52,7 @@ export default function MyJobsPage() {
             <p className="text-neutral-500 mt-1">Track and manage your service postings.</p>
           </div>
           <Link 
-            href="/job/post" 
+            href="/customer/post-job"
             className="flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-2xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20 w-fit"
           >
             <Plus className="w-5 h-5" />
@@ -93,7 +93,7 @@ export default function MyJobsPage() {
         <div className="space-y-6">
           {filteredJobs.length > 0 ? (
             filteredJobs.map((job) => (
-              <Link key={job._id || job.id} href={`/job/${job._id || job.id}`}>
+              <Link key={job._id || job.id} href={`/customer/job/${job._id || job.id}`}>
                 <Card className="p-6 md:p-8 hover:border-primary-300 hover:shadow-xl hover:shadow-primary-500/5 transition-all group border-neutral-200/60 mb-6 block">
                   <div className="flex flex-col lg:flex-row gap-8">
                     <div className="w-full lg:w-48 h-48 lg:h-32 rounded-2xl overflow-hidden shrink-0 border border-neutral-100 bg-neutral-50 flex items-center justify-center">
@@ -160,7 +160,7 @@ export default function MyJobsPage() {
               <h3 className="text-xl font-bold text-neutral-900">No jobs found</h3>
               <p className="text-neutral-500 mt-2 max-w-xs mx-auto">You haven&apos;t posted any service requests in this category yet.</p>
               <Link 
-                href="/job/post" 
+                href="/customer/post-job"
                 className="mt-8 inline-flex items-center gap-2 px-8 py-3 bg-primary-600 text-white rounded-2xl font-bold hover:bg-primary-700 transition-all"
               >
                 Post Your First Job

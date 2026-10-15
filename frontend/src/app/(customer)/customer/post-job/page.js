@@ -68,6 +68,7 @@ export default function PostJobPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const jobSteps = [
     { id: 1, label: 'Service', icon: Wrench },
@@ -97,6 +98,7 @@ export default function PostJobPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       const formData = new FormData();
       formData.append('title', state.title);
@@ -110,7 +112,7 @@ export default function PostJobPage() {
       await api.createJob(formData);
       router.push('/customer/my-jobs');
     } catch (err) {
-      console.error('Failed to post job:', err);
+      setSubmitError(err.message || 'Unable to post your job. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -127,6 +129,11 @@ export default function PostJobPage() {
         <h1 className="text-4xl font-black text-text-primary tracking-tight">Post Your Job</h1>
         <p className="text-text-secondary mt-2 font-medium text-lg italic">Get matched with the best professionals in minutes.</p>
       </div>
+      {submitError && (
+        <div role="alert" className="p-4 bg-error-light border border-error/20 text-error rounded-2xl text-sm font-semibold">
+          {submitError}
+        </div>
+      )}
 
       <StepIndicator 
         currentStep={state.step} 

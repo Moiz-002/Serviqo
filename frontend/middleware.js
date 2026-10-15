@@ -30,6 +30,8 @@ export function middleware(request) {
     // Protect customer/worker dashboards -> redirect to /login
     if (
       pathname.startsWith('/customer/') ||
+      pathname === '/job' ||
+      pathname.startsWith('/job/') ||
       pathname === '/worker' ||
       pathname.startsWith('/worker/') ||
       pathname === '/onboarding'
@@ -87,6 +89,11 @@ export function middleware(request) {
     // Protect worker routes — only workers can access
     if ((pathname === '/worker' || pathname.startsWith('/worker/')) && userRole !== 'worker') {
       const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/customer/dashboard';
+      return NextResponse.redirect(new URL(dashboard, request.url));
+    }
+
+    if ((pathname === '/job' || pathname.startsWith('/job/')) && userRole !== 'customer') {
+      const dashboard = userRole === 'admin' ? '/admin/dashboard' : '/worker/dashboard';
       return NextResponse.redirect(new URL(dashboard, request.url));
     }
 

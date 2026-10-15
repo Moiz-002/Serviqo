@@ -15,8 +15,10 @@ import {
   MessageSquare,
   AlertCircle,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as api from '@/lib/api';
 
 const STATUS_CONFIG = {
@@ -135,12 +137,14 @@ function BidCard({ bid, jobStatus, acceptedBidId, onAccept, onReject, isActing }
 
 export default function JobDetailPage({ params }) {
   const { id } = use(params);
+  const router = useRouter();
   const [job, setJob] = useState(null);
   const [bids, setBids] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isActing, setIsActing] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+  const [isManaging, setIsManaging] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -193,6 +197,33 @@ export default function JobDetailPage({ params }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this open job request? This cannot be undone.')) return;
+    setIsManaging(true);
+    setActionMessage('');
+    try {
+      await api.deleteJob(id);
+      router.push('/customer/my-jobs');
+    } catch (err) {
+      setActionMessage(err.message || 'Failed to delete the job.');
+      setIsManaging(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    setIsManaging(true);
+    setActionMessage('');
+    try {
+      const data = await api.completeJob(id);
+      setJob(data.job || data);
+      setActionMessage('Job marked as completed.');
+    } catch (err) {
+      setActionMessage(err.message || 'Failed to complete the job.');
+    } finally {
+      setIsManaging(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto py-20 text-center text-neutral-400 text-sm">
@@ -240,6 +271,31 @@ export default function JobDetailPage({ params }) {
             <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border ${statusCfg.color}`}>
               {statusCfg.label}
             </span>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-neutral-100">
+            {job.status === 'open' && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isManaging}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Request
+              </button>
+            )}
+            {job.status === 'active' && (
+              <button
+                type="button"
+                onClick={handleComplete}
+                disabled={isManaging}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Mark Complete
+              </button>
+            )}
           </div>
 
           <p className="mt-4 text-neutral-600 leading-relaxed">{job.description}</p>
