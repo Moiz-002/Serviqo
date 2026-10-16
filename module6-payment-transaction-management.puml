@@ -1,0 +1,52 @@
+@startuml
+title Serviqo - Module 6: Payment & Transaction Management (Proposed)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor "Simulated Payment Processor" as PaymentSimulator
+
+rectangle "Serviqo Simulated Payment & Transaction Management (Not Implemented)" {
+  usecase "Initiate simulated\nservice payment" as InitiatePayment
+  usecase "Review job amount and\npayment summary" as ReviewSummary
+  usecase "Calculate platform\ncommission" as CalculateCommission
+  usecase "Record simulated\ntransaction" as RecordTransaction
+  usecase "Update simulated\npayment status" as UpdateStatus
+  usecase "Generate payment\nconfirmation and receipt" as GenerateReceipt
+  usecase "View transaction\nhistory" as ViewHistory
+  usecase "View simulated\npayment information" as ViewPaymentInfo
+}
+
+Customer -- InitiatePayment
+Customer -- ViewHistory
+Customer -- ViewPaymentInfo
+Worker -- ViewHistory
+Worker -- ViewPaymentInfo
+
+InitiatePayment ..> ReviewSummary : <<include>>
+InitiatePayment ..> CalculateCommission : <<include>>
+InitiatePayment ..> RecordTransaction : <<include>>
+RecordTransaction ..> UpdateStatus : <<include>>
+RecordTransaction ..> GenerateReceipt : <<include>>
+UpdateStatus -- PaymentSimulator
+
+ViewHistory ..> ViewPaymentInfo : <<include>>
+
+note right of InitiatePayment
+Planned functionality only.
+No real money is transferred and no
+production payment provider is integrated.
+end note
+
+note bottom of CalculateCommission
+Commission rate, currency, payment timing,
+refunds, and payout rules require confirmation
+before implementation; this diagram does
+not define those business policies.
+end note
+
+@enduml

@@ -41,11 +41,19 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     api.getAdminAnalytics().then((data) => {
-      setAnalytics(data.analytics || data);
+      const summary = data.analytics || data;
+      setAnalytics({
+        totalUsers: summary.users?.total ?? summary.totalUsers ?? 0,
+        totalWorkers: summary.users?.workers ?? summary.totalWorkers ?? 0,
+        activeJobs: summary.jobs?.active ?? summary.activeJobs ?? 0,
+        completedJobs: summary.jobs?.completed ?? summary.completedJobs ?? 0,
+        pendingVerifications: summary.pendingVerifications ?? 0,
+        openDisputes: summary.openDisputes ?? 0,
+      });
     }).catch(() => {});
 
     api.getPendingVerifications().then((data) => {
-      setPendingCount(data.workers?.length || 0);
+      setPendingCount((data.verifications || data.workers || []).length);
     }).catch(() => {});
 
     api.getAdminJobs().then((data) => {
@@ -69,7 +77,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-neutral-900">Dashboard Overview</h1>
-        <p className="text-neutral-500 mt-2">Welcome back, Admin. Here's what's happening on Serviqo today.</p>
+        <p className="text-neutral-500 mt-2">Welcome back, Admin. Here&apos;s what&apos;s happening on Serviqo today.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -169,7 +177,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-navy-900 p-6 rounded-[32px] text-white">
-            <h2 className="text-lg font-bold mb-4">Pending Verifications</h2>
+            <h2 className="text-lg font-bold mb-4 !text-white">Pending Verifications</h2>
             <p className="text-navy-100 text-sm mb-6">
               There are {pendingCount} worker verification requests waiting for your review.
             </p>

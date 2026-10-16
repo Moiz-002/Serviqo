@@ -1,0 +1,90 @@
+@startuml
+title Serviqo - Module 1: User Registration & Authentication
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor Administrator as Admin
+actor "WhatsApp OTP Service" as OtpService
+
+rectangle "Serviqo User Registration & Authentication" {
+  usecase "Register account" as Register
+  usecase "Provide name, phone,\nemail and password" as ProvideDetails
+  usecase "Select customer or\nworker role" as SelectRole
+  usecase "Verify registration\nphone OTP" as VerifyRegistration
+
+  usecase "Log in with\nemail or phone + password" as PasswordLogin
+  usecase "Request login OTP" as RequestLoginOtp
+  usecase "Verify login OTP" as VerifyLoginOtp
+  usecase "Log in to admin portal" as AdminLogin
+  usecase "Verify admin\ncredentials" as VerifyAdminCredentials
+  usecase "Verify admin TOTP/MFA" as VerifyAdminMfa
+
+  usecase "Issue authenticated\nsession cookies/JWT" as IssueSession
+  usecase "Apply role-based\naccess control" as ApplyRbac
+  usecase "Access permitted\ndashboard and APIs" as AccessFeatures
+  usecase "Log out" as Logout
+  usecase "Request password reset" as RequestReset
+  usecase "Receive WhatsApp reset OTP" as ReceiveResetOtp
+  usecase "Verify reset OTP" as VerifyResetOtp
+  usecase "Set and confirm new password" as SetNewPassword
+}
+
+Customer -- Register
+Worker -- Register
+Customer -- PasswordLogin
+Worker -- PasswordLogin
+Customer -- RequestLoginOtp
+Worker -- RequestLoginOtp
+Customer -- Logout
+Worker -- Logout
+Customer -- RequestReset
+Worker -- RequestReset
+Admin -- AdminLogin
+Admin -- Logout
+
+Register ..> ProvideDetails : <<include>>
+Register ..> SelectRole : <<include>>
+Register ..> VerifyRegistration : <<include>>
+VerifyRegistration -- OtpService
+
+RequestLoginOtp ..> VerifyLoginOtp : <<include>>
+RequestLoginOtp -- OtpService
+AdminLogin ..> VerifyAdminCredentials : <<include>>
+AdminLogin ..> VerifyAdminMfa : <<include>>
+
+RequestReset ..> ReceiveResetOtp : <<include>>
+ReceiveResetOtp -- OtpService
+RequestReset ..> VerifyResetOtp : <<include>>
+VerifyResetOtp ..> SetNewPassword : <<include>>
+
+PasswordLogin ..> IssueSession : <<include>>
+VerifyLoginOtp ..> IssueSession : <<include>>
+VerifyRegistration ..> IssueSession : <<include>>
+AdminLogin ..> IssueSession : <<include>>
+
+IssueSession ..> ApplyRbac : <<include>>
+ApplyRbac ..> AccessFeatures : <<include>>
+
+note right of Register
+Only customer and worker accounts
+can be self-registered.
+end note
+
+note right of AdminLogin
+Administrator authentication is
+separate from the customer/worker
+login flow and requires TOTP/MFA.
+end note
+
+note right of RequestReset
+Accepts one registered phone number.
+The WhatsApp OTP expires after 10 minutes
+and is invalid after successful use.
+end note
+
+@enduml

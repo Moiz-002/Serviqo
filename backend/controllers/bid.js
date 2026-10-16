@@ -1,5 +1,7 @@
 const Bid = require('../models/Bid');
 const Job = require('../models/Job');
+const User = require('../models/User');
+const { emitToUser, emitToUsers } = require('../services/realtime');
 
 function validateBidInput({ amount, proposal, estimatedDays }) {
   const numericAmount = Number(amount);
@@ -22,6 +24,11 @@ async function submitBid(req, res) {
   const { jobId, amount, proposal, estimatedDays } = req.body;
   const validationError = validateBidInput({ amount, proposal, estimatedDays });
   if (validationError) return res.status(400).json({ error: validationError });
+
+  const worker = await User.findById(req.user._id).select('role isActive isVerified cnicVerified');
+  if (!worker || worker.role !== 'worker' || !worker.isActive || !worker.isVerified || !worker.cnicVerified) {
+    return res.status(403).json({ error: 'Only active, platform-verified workers can submit bids' });
+  }
 
   const job = await Job.findById(jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
@@ -50,6 +57,12 @@ async function submitBid(req, res) {
   }
 
   await Job.findByIdAndUpdate(jobId, { $inc: { totalBids: 1 } });
+  await bid.populate('worker', 'name profilePicture rating completedJobs serviceCategory city');
+  emitToUser(job.customer, 'bid:created', {
+    jobId: String(jobId),
+    bid,
+    totalBids: (job.totalBids || 0) + 1,
+  });
 
   return res.status(201).json({ message: 'Bid submitted successfully', bid });
 }
@@ -103,6 +116,16 @@ async function acceptBid(req, res) {
     { job: bid.job._id, _id: { $ne: bid._id } },
     { status: 'rejected' }
   );
+  emitToUsers([bid.job.customer, bid.worker], 'bid:decision', {
+    bidId: String(bid._id),
+    jobId: String(bid.job._id),
+    status: 'accepted',
+  });
+  emitToUsers([bid.job.customer, bid.worker], 'job:status', {
+    jobId: String(bid.job._id),
+    status: 'active',
+    assignedWorker: String(bid.worker),
+  });
 
   return res.json({ message: 'Bid accepted', bid });
 }
@@ -119,6 +142,11 @@ async function rejectBid(req, res) {
 
   bid.status = 'rejected';
   await bid.save();
+  emitToUser(bid.worker, 'bid:decision', {
+    bidId: String(bid._id),
+    jobId: String(bid.job._id),
+    status: 'rejected',
+  });
 
   return res.json({ message: 'Bid rejected', bid });
 }

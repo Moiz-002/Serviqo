@@ -1,0 +1,100 @@
+@startuml
+title Serviqo - Module 2: Worker Profile & Service Category Management
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Worker
+actor Customer
+actor Administrator as Admin
+actor "Image Storage Service" as ImageStorage
+
+rectangle "Serviqo Worker Profile & Service Category Management" {
+  usecase "Manage worker profile" as ManageProfile
+  usecase "Edit personal and\nprofessional details" as EditProfile
+  usecase "Upload or update\nprofile photo" as ProfilePhoto
+
+  usecase "Manage service\ncategory and skills" as ManageSkills
+  usecase "Select primary\nservice category" as SelectCategory
+  usecase "Add or remove\ntechnical skills" as EditSkills
+  usecase "Set hourly rate" as SetRate
+
+  usecase "Manage availability" as ManageAvailability
+  usecase "Set working days\nand hours" as SetSchedule
+  usecase "Set response-time\npreference" as SetResponseTime
+
+  usecase "Manage work portfolio" as ManagePortfolio
+  usecase "Add portfolio\nphotos and captions" as AddPortfolio
+  usecase "Remove portfolio item" as RemovePortfolio
+
+  usecase "Submit or update\nidentity documents" as SubmitIdentity
+  usecase "Review worker\nverification documents" as ReviewIdentity
+  usecase "Approve worker\nverification" as ApproveIdentity
+  usecase "Reject verification\nwith a review note" as RejectIdentity
+
+  usecase "Search workers" as SearchWorkers
+  usecase "Filter workers by\ncategory, city or name" as FilterWorkers
+  usecase "View public worker\nprofile and reviews" as ViewWorker
+}
+
+Worker -- ManageProfile
+Worker -- ManageSkills
+Worker -- ManageAvailability
+Worker -- ManagePortfolio
+Worker -- SubmitIdentity
+Admin -- ReviewIdentity
+
+Customer -- SearchWorkers
+Customer -- ViewWorker
+
+ManageProfile ..> EditProfile : <<include>>
+ManageProfile ..> ProfilePhoto : <<include>>
+ProfilePhoto -- ImageStorage
+
+ManageSkills ..> SelectCategory : <<include>>
+ManageSkills ..> EditSkills : <<include>>
+ManageSkills ..> SetRate : <<include>>
+
+ManageAvailability ..> SetSchedule : <<include>>
+ManageAvailability ..> SetResponseTime : <<include>>
+
+ManagePortfolio ..> AddPortfolio : <<include>>
+ManagePortfolio ..> RemovePortfolio : <<include>>
+AddPortfolio -- ImageStorage
+SubmitIdentity -- ImageStorage
+ApproveIdentity ..> ReviewIdentity : <<extend>>
+RejectIdentity ..> ReviewIdentity : <<extend>>
+
+SearchWorkers ..> FilterWorkers : <<include>>
+ViewWorker ..> SearchWorkers : <<extend>>
+
+note right of ManageSkills
+Workers select one primary category
+from the categories provided by Serviqo.
+They manage their own skills and hourly rate;
+they do not create platform categories.
+end note
+
+note bottom of SearchWorkers
+Worker search results include active,
+platform-verified workers. Public profiles
+show profile details and customer reviews,
+but exclude private contact and identity data.
+end note
+
+note bottom of SubmitIdentity
+Workers submit identity documents. An
+administrator reviews the documents and
+approves or rejects the verification request.
+end note
+
+note right of Admin
+Admin verification decisions are included
+because they directly complete the worker
+document-submission flow. Admin does not
+edit worker profile or service-category data.
+end note
+
+@enduml

@@ -25,6 +25,9 @@ const userSchema = new Schema({
   isActive: { type: Boolean, default: true },
   otp: { type: String },
   otpExpiry: { type: Date },
+  passwordResetOtpHash: { type: String },
+  passwordResetOtpExpires: { type: Date },
+  passwordResetOtpAttempts: { type: Number, default: 0 },
 
   // Worker-specific
   serviceCategory: { type: String },

@@ -184,9 +184,9 @@ export default function MyJobsPage() {
                       <div className="ml-auto flex items-center gap-3">
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-primary-subtle text-primary rounded-full border border-primary/10">
                           <MessageSquare className="w-4 h-4" />
-                          <span className="text-xs font-black tracking-widest">{job.bids?.length || job.proposalsCount || 0} Bids</span>
+                          <span className="text-xs font-black tracking-widest">{job.totalBids || 0} Bids</span>
                         </div>
-                        {job.status === 'open' && (job.bids?.length || job.proposalsCount || 0) > 0 && (
+                        {job.status === 'open' && (job.totalBids || 0) > 0 && (
                           <div className="text-[10px] font-black text-accent uppercase animate-pulse">
                             New Bids!
                           </div>

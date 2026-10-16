@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import Link from 'next/link';
 import * as api from '@/lib/api';
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,12 +16,17 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState({});
+  const [userId] = useState(() => (
+    typeof window === 'undefined'
+      ? ''
+      : window.localStorage.getItem('resetUserId') || ''
+  ));
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!otp || otp.length !== 6) {
-      newErrors.otp = 'Enter the 6-digit OTP sent to your phone/email';
+    if (!/^\d{6}$/.test(otp)) {
+      newErrors.otp = 'Enter the 6-digit code sent to your WhatsApp';
     }
 
     if (!password) {
@@ -34,6 +37,8 @@ export default function ResetPasswordPage() {
       newErrors.password = 'Password must contain at least one uppercase letter';
     } else if (!/[0-9]/.test(password)) {
       newErrors.password = 'Password must contain at least one number';
+    } else if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+      newErrors.password = 'Password must contain at least one special character';
     }
 
     if (password !== confirmPassword) {
@@ -54,9 +59,8 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
     setErrors({});
 
-    const userId = localStorage.getItem('resetUserId');
     if (!userId) {
-      setErrors({ general: 'Session expired. Please request a new OTP.' });
+      setErrors({ general: 'Your reset session has expired. Request a new code.' });
       setIsLoading(false);
       return;
     }
@@ -89,7 +93,7 @@ export default function ResetPasswordPage() {
               <div>
                 <h2 className="text-2xl font-bold text-text-primary">Set New Password</h2>
                 <p className="text-sm text-text-secondary mt-1">
-                  Enter the OTP sent to your phone/email and choose a new password.
+                  Enter the WhatsApp verification code, then choose a new password.
                 </p>
               </div>
 
@@ -100,33 +104,37 @@ export default function ResetPasswordPage() {
               )}
 
               <form onSubmit={handleReset} className="space-y-4">
-                {/* OTP Field */}
                 <div className="space-y-2">
                   <label htmlFor="otp" className="block text-sm font-medium text-text-primary">
-                    Verification OTP
+                    WhatsApp Verification Code
                   </label>
-                  <div className="relative">
-                    <ShieldCheck className="absolute left-3 top-3.5 w-5 h-5 text-text-tertiary" />
-                    <input
-                      id="otp"
-                      type="text"
-                      maxLength={6}
-                      placeholder="Enter 6-digit OTP"
-                      value={otp}
-                      onChange={(e) => handleFieldChange('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border transition-all ${
-                        errors.otp
-                          ? 'border-error bg-error-light text-error'
-                          : 'border-border focus:border-border-focus focus:ring-2 focus:ring-border-focus'
-                      } outline-none text-text-primary placeholder-text-tertiary tracking-widest font-mono`}
-                    />
-                  </div>
+                  <input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={otp}
+                    onChange={(event) => handleFieldChange('otp', event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className={`w-full rounded-lg border px-4 py-2.5 tracking-[0.3em] font-mono transition-all ${
+                      errors.otp
+                        ? 'border-error bg-error-light text-error'
+                        : 'border-border focus:border-border-focus focus:ring-2 focus:ring-border-focus'
+                    } outline-none text-text-primary placeholder-text-tertiary`}
+                  />
                   {errors.otp && (
-                    <p className="text-sm text-error mt-1 flex items-center gap-1">
+                    <p className="text-sm text-error flex items-center gap-1">
                       <AlertCircle className="w-4 h-4" />
                       {errors.otp}
                     </p>
                   )}
+                  <p className="text-xs text-text-secondary">
+                    The code expires in 10 minutes.{' '}
+                    <Link href="/forgot-password" className="font-semibold text-text-accent hover:underline">
+                      Request another code
+                    </Link>
+                  </p>
                 </div>
 
                 {/* New Password */}

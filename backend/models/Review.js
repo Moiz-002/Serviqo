@@ -8,6 +8,8 @@ const reviewSchema = new Schema({
   comment: { type: String },
 }, { timestamps: true });
 
+reviewSchema.index({ job: 1, customer: 1 }, { unique: true });
+
 const Review = model('Review', reviewSchema);
 
 module.exports = Review;

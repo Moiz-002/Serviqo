@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Job = require('../models/Job');
 const Dispute = require('../models/Dispute');
 const Review = require('../models/Review');
+const { emitToUser, createNotification } = require('../services/realtime');
 
 async function getAnalytics(req, res) {
   const [
@@ -33,40 +34,75 @@ async function getAnalytics(req, res) {
 }
 
 async function getUsers(req, res) {
-  const { role, status, q, page = 1, limit = 10 } = req.query;
+  const { role, status, q, search, page = 1, limit = 10 } = req.query;
+  const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 10));
   const filter = {};
-  if (role) filter.role = role;
+  if (role && ['customer', 'worker', 'admin'].includes(role)) filter.role = role;
   if (status === 'active') filter.isActive = true;
   if (status === 'inactive') filter.isActive = false;
-  if (q) filter.$or = [
-    { name: { $regex: q, $options: 'i' } },
-    { phone: { $regex: q, $options: 'i' } },
-  ];
+  if (status === 'approved') {
+    filter.$and = [{
+      $or: [
+      { role: 'worker', cnicVerified: true },
+      { role: 'customer', isVerified: true },
+      ],
+    }];
+  }
+  if (status === 'rejected') filter.cnicRejectionReason = { $exists: true, $ne: '' };
+  if (status === 'pending') {
+    filter.role = 'worker';
+    filter.cnicVerified = false;
+    filter.cnicRejectionReason = { $exists: false };
+  }
+  const searchTerm = String(search || q || '').trim().slice(0, 100);
+  if (searchTerm) {
+    const searchClause = {
+      $or: [
+    { name: { $regex: searchTerm, $options: 'i' } },
+    { phone: { $regex: searchTerm, $options: 'i' } },
+    { email: { $regex: searchTerm, $options: 'i' } },
+      ],
+    };
+    filter.$and = [...(filter.$and || []), searchClause];
+  }
 
   const users = await User.find(filter)
     .select('-password -otp -otpExpiry')
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
+    .skip((currentPage - 1) * pageSize)
+    .limit(pageSize)
     .sort({ createdAt: -1 });
 
   const total = await User.countDocuments(filter);
 
-  return res.json({ users, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+  return res.json({ users, total, page: currentPage, totalPages: Math.ceil(total / pageSize) });
 }
 
 async function updateUserStatus(req, res) {
-  const { isActive } = req.body;
+  const { isActive, status } = req.body;
+  const nextIsActive = typeof isActive === 'boolean'
+    ? isActive
+    : status === 'active'
+      ? true
+      : status === 'suspended' || status === 'inactive'
+        ? false
+        : undefined;
+  if (nextIsActive === undefined) {
+    return res.status(400).json({ error: 'isActive or a valid status is required' });
+  }
   const user = await User.findByIdAndUpdate(
     req.params.userId,
-    { isActive },
+    { isActive: nextIsActive },
     { new: true, select: '-password -otp -otpExpiry' }
   );
   if (!user) return res.status(404).json({ error: 'User not found' });
-  return res.json({ message: `User ${isActive ? 'activated' : 'deactivated'}`, user });
+  return res.json({ message: `User ${nextIsActive ? 'activated' : 'deactivated'}`, user });
 }
 
 async function getAllJobs(req, res) {
   const { status, category, page = 1, limit = 10 } = req.query;
+  const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 10));
   const filter = {};
   if (status) filter.status = status;
   if (category) filter.category = category;
@@ -74,13 +110,13 @@ async function getAllJobs(req, res) {
   const jobs = await Job.find(filter)
     .populate('customer', 'name phone')
     .populate('assignedWorker', 'name phone')
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
+    .skip((currentPage - 1) * pageSize)
+    .limit(pageSize)
     .sort({ createdAt: -1 });
 
   const total = await Job.countDocuments(filter);
 
-  return res.json({ jobs, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+  return res.json({ jobs, total, page: currentPage, totalPages: Math.ceil(total / pageSize) });
 }
 
 async function getPendingVerifications(req, res) {
@@ -88,29 +124,50 @@ async function getPendingVerifications(req, res) {
     role: 'worker',
     cnicFront: { $exists: true, $ne: null },
     cnicVerified: false,
+    cnicRejectionReason: { $exists: false },
   }).select('name phone email city cnicFront cnicBack createdAt cnicRejectionReason');
 
-  return res.json({ verifications: workers });
+  return res.json({ verifications: workers, workers });
 }
 
 async function approveVerification(req, res) {
   const user = await User.findByIdAndUpdate(
-    req.params.userId,
+    { _id: req.params.userId, role: 'worker' },
     { cnicVerified: true, $unset: { cnicRejectionReason: 1 } },
     { new: true, select: '-password -otp -otpExpiry' }
   );
   if (!user) return res.status(404).json({ error: 'Worker not found' });
+  emitToUser(user._id, 'worker:verification', {
+    status: 'approved',
+    message: 'Your worker verification has been approved. You can now submit bids.',
+  });
+  await createNotification(user._id, {
+    type: 'worker_verification',
+    title: 'Verification approved',
+    message: 'Your worker verification was approved. You can now submit bids.',
+  });
   return res.json({ message: 'Worker CNIC verified', user });
 }
 
 async function rejectVerification(req, res) {
-  const { reason } = req.body;
+  const reason = String(req.body.reason || '').trim();
+  if (!reason) return res.status(400).json({ error: 'A rejection reason is required' });
   const user = await User.findByIdAndUpdate(
-    req.params.userId,
+    { _id: req.params.userId, role: 'worker' },
     { cnicVerified: false, cnicRejectionReason: reason },
     { new: true, select: '-password -otp -otpExpiry' }
   );
   if (!user) return res.status(404).json({ error: 'Worker not found' });
+  emitToUser(user._id, 'worker:verification', {
+    status: 'rejected',
+    reason,
+    message: `Your worker verification needs changes: ${reason}`,
+  });
+  await createNotification(user._id, {
+    type: 'worker_verification',
+    title: 'Verification needs changes',
+    message: reason,
+  });
   return res.json({ message: 'Verification rejected', user });
 }
 

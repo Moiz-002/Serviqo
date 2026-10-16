@@ -15,12 +15,14 @@ import {
   Menu,
   X,
   Bell,
+  MessageSquare,
   Globe,
   HelpCircle,
   ChevronRight,
   Search
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import NotificationCenter from '@/components/ui/NotificationCenter';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/worker/dashboard' },
@@ -29,6 +31,7 @@ const menuItems = [
   { icon: ImageIcon, label: 'Portfolio', href: '/worker/portfolio' },
   { icon: Calendar, label: 'Availability', href: '/worker/availability' },
   { icon: Star, label: 'Reviews', href: '/worker/reviews' },
+  { icon: MessageSquare, label: 'Messages', href: '/worker/messages' },
 ];
 
 export default function WorkerLayout({ children }) {
@@ -101,10 +104,7 @@ export default function WorkerLayout({ children }) {
               </a>
             </div>
             
-            <button className="p-2 text-neutral-500 hover:bg-neutral-100 rounded-full relative transition-colors">
-              <Bell className="w-6 h-6" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationCenter role="worker" />
             
             <div className="h-8 w-[1px] bg-neutral-200 mx-1 hidden sm:block"></div>
             

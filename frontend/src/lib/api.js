@@ -1,6 +1,7 @@
 // Use environment variable for API base so local/dev/prod can differ.
 // Accept multiple env var names for backward compatibility.
 const BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const SOCKET_BASE = BASE.replace(/\/api\/?$/, '');
 
 const CLIENT_SESSION_COOKIE = 'serviqo_session';
 const CLIENT_SESSION_MAX_AGE = 7 * 24 * 60 * 60;
@@ -21,6 +22,7 @@ function setClientSessionCookie(user) {
   }
 
   document.cookie = cookieParts.join('; ');
+  window.localStorage.setItem('serviqo_user_id', String(user._id));
 }
 
 function clearClientSessionCookie() {
@@ -39,29 +41,45 @@ function clearClientSessionCookie() {
   }
 
   document.cookie = cookieParts.join('; ');
+  window.localStorage.removeItem('serviqo_user_id');
 }
 
-async function request(path, { headers: extraHeaders, body, ...rest } = {}) {
+async function request(path, { headers: extraHeaders, body, retryTransient = false, ...rest } = {}) {
   const isFormData = body instanceof FormData;
   const headers = isFormData
     ? extraHeaders || {}
     : { 'Content-Type': 'application/json', ...(extraHeaders || {}) };
 
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers,
-    body,
-    ...rest,
-  });
+  let lastError;
+  for (let attempt = 0; attempt <= (retryTransient ? 1 : 0); attempt += 1) {
+    try {
+      const res = await fetch(`${BASE}${path}`, {
+        credentials: 'include',
+        headers,
+        body,
+        ...rest,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return data;
 
-  const data = await res.json();
-  if (!res.ok) {
-    const err = new Error(data.error || 'Request failed');
-    err.status = res.status;
-    err.data = data;
-    throw err;
+      const errorText = String(data.error || '');
+      const transient = res.status >= 502 && res.status <= 504
+        || /getaddrinfo|cloudinary|econnreset|etimedout/i.test(errorText);
+      if (!retryTransient || !transient || attempt === 1) {
+        const err = new Error(data.error || 'Request failed');
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      lastError = new Error(errorText);
+    } catch (error) {
+      const transient = /getaddrinfo|cloudinary|econnreset|etimedout|failed to fetch/i.test(error.message || '');
+      if (!retryTransient || !transient || attempt === 1) throw error;
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 800));
   }
-  return data;
+  throw lastError || new Error('Request failed');
 }
 
 // Auth
@@ -118,7 +136,7 @@ export const removePortfolioItem = (itemId) => request(`/worker/portfolio/${item
 export const uploadCnic = (formData) => request('/worker/cnic', { method: 'POST', body: formData });
 
 // Jobs
-export const createJob = (formData) => request('/jobs', { method: 'POST', body: formData });
+export const createJob = (formData) => request('/jobs', { method: 'POST', body: formData, retryTransient: true });
 export const getJobs = () => request('/jobs');
 export const getJobById = (id) => request(`/jobs/${id}`);
 export const updateJob = (id, body) => request(`/jobs/${id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -138,6 +156,8 @@ export const getOrCreateConversation = (body) => request('/messages/conversation
 export const getMessages = (conversationId) => request(`/messages/conversations/${conversationId}`);
 export const sendMessage = (conversationId, body) => request(`/messages/conversations/${conversationId}`, { method: 'POST', body: JSON.stringify(body) });
 
+export { SOCKET_BASE };
+
 // Reviews
 export const postReview = (body) => request('/reviews', { method: 'POST', body: JSON.stringify(body) });
 export const getWorkerReviews = (workerId) => request(`/reviews/worker/${workerId}`);
@@ -146,6 +166,8 @@ export const getMyReviews = () => request('/reviews/mine');
 // Disputes
 export const createDispute = (body) => request('/disputes', { method: 'POST', body: JSON.stringify(body) });
 export const getMyDisputes = () => request('/disputes/mine');
+export const getNotifications = () => request('/notifications');
+export const markNotificationsRead = () => request('/notifications/read', { method: 'PUT' });
 
 // Admin
 export const getAdminAnalytics = () => request('/admin/analytics');

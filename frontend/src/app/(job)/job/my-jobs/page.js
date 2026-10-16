@@ -144,7 +144,7 @@ export default function MyJobsPage() {
                         </div>
                         <div className="ml-auto flex items-center gap-2 px-4 py-1.5 bg-primary-50 text-primary-600 rounded-full border border-primary-100">
                           <MessageSquare className="w-4 h-4" />
-                          <span className="text-xs font-black">{job.bids?.length || job.proposalsCount || 0} Bids</span>
+                          <span className="text-xs font-black">{job.totalBids || 0} Bids</span>
                         </div>
                       </div>
                     </div>

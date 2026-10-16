@@ -21,17 +21,28 @@ async function postReview(req, res) {
   if (!job.assignedWorker) {
     return res.status(400).json({ error: 'This job has no assigned worker' });
   }
+  if (comment !== undefined && (typeof comment !== 'string' || comment.trim().length > 2000)) {
+    return res.status(400).json({ error: 'Review comment must be 2,000 characters or fewer' });
+  }
 
   const existing = await Review.findOne({ job: jobId, customer: req.user._id });
   if (existing) return res.status(400).json({ error: 'You have already reviewed this job' });
 
-  const review = await Review.create({
-    job: jobId,
-    customer: req.user._id,
-    worker: job.assignedWorker,
-    rating: numericRating,
-    comment,
-  });
+  let review;
+  try {
+    review = await Review.create({
+      job: jobId,
+      customer: req.user._id,
+      worker: job.assignedWorker,
+      rating: numericRating,
+      comment: comment?.trim(),
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ error: 'You have already reviewed this job' });
+    }
+    throw error;
+  }
 
   const allReviews = await Review.find({ worker: job.assignedWorker });
   const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;

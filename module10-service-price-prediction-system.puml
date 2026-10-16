@@ -1,0 +1,68 @@
+@startuml
+title Serviqo - Module 10: Service Price Prediction System (Proposed)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor "Serviqo Web or Mobile Client" as Client
+actor "Pricing Advisor AI Agent" as PricingAI
+actor "Serviqo Central Backend" as Backend
+
+rectangle "Serviqo Service Price Prediction System (Not Implemented)" {
+  usecase "Request a price estimate" as RequestEstimate
+  usecase "Analyze service requirements" as AnalyzeRequirements
+  usecase "Retrieve relevant pricing,\njob and bidding information" as RetrievePricingData
+  usecase "Estimate an appropriate\nprice range" as EstimatePrice
+  usecase "Explain the estimate" as ExplainEstimate
+  usecase "View estimate while\ncreating a service request" as ViewEstimate
+  usecase "Use estimate to select\na realistic service budget" as SelectBudget
+  usecase "Provide estimate feedback" as ProvideFeedback
+  usecase "Improve future estimates\nusing relevant job and bid data" as ImproveEstimates
+}
+
+Customer -- RequestEstimate
+Customer -- ViewEstimate
+Customer -- ProvideFeedback
+Client -- RequestEstimate
+Client -- ViewEstimate
+Client -- SelectBudget
+Client -- ProvideFeedback
+
+RequestEstimate ..> AnalyzeRequirements : <<include>>
+RequestEstimate ..> RetrievePricingData : <<include>>
+RequestEstimate ..> EstimatePrice : <<include>>
+RequestEstimate ..> ExplainEstimate : <<include>>
+RequestEstimate ..> ViewEstimate : <<include>>
+SelectBudget ..> ViewEstimate : <<include>>
+ProvideFeedback ..> ImproveEstimates : <<include>>
+
+AnalyzeRequirements -- PricingAI
+EstimatePrice -- PricingAI
+ExplainEstimate -- PricingAI
+ImproveEstimates -- PricingAI
+RetrievePricingData -- Backend
+ImproveEstimates -- Backend
+
+note right of ExplainEstimate
+The estimate should explain the
+main factors that influence the
+suggested price range.
+end note
+
+note bottom of EstimatePrice
+Estimates are advisory, not binding
+quotes. Model inputs, supported
+currencies, and pricing policies must
+be defined before implementation.
+end note
+
+note bottom of RequestEstimate
+This module is proposed and not
+currently implemented. No actual
+payment processing is implied.
+end note
+
+@enduml

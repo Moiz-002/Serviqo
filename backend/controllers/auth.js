@@ -1,10 +1,39 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { createToken } = require('../services/auth');
 const { sendWhatsAppOtp } = require('../services/whatsapp');
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function normalizeIdentifier(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeEmail(value) {
+  const email = normalizeIdentifier(value);
+  return email ? email.toLowerCase() : undefined;
+}
+
+function normalizePhone(value) {
+  const phone = normalizeIdentifier(value).replace(/[^\d+]/g, '');
+  return /^\d{10}$/.test(phone) ? `+92${phone}` : phone;
+}
+
+function isValidPassword(password) {
+  return typeof password === 'string'
+    && password.length >= 8
+    && /[A-Z]/.test(password)
+    && /[0-9]/.test(password)
+    && /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
+}
+
+function hashPasswordResetOtp(otp) {
+  return crypto.createHmac('sha256', process.env.JWT_SECRET)
+    .update(otp)
+    .digest();
 }
 
 async function deliverOtp(phone, otp) {
@@ -36,10 +65,24 @@ function setAuthCookies(res, token, user) {
 }
 
 async function handleSignup(req, res) {
-  const { name, phone, email, password, role } = req.body;
+  const {
+    name: rawName,
+    phone: rawPhone,
+    email: rawEmail,
+    password,
+    role,
+  } = req.body || {};
+  const name = normalizeIdentifier(rawName);
+  const phone = normalizePhone(rawPhone);
+  const email = normalizeEmail(rawEmail);
 
   if (!name || !phone || !password) {
     return res.status(400).json({ error: 'Name, phone, and password are required' });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters and include an uppercase letter, number, and special character',
+    });
   }
   if (role && !['customer', 'worker'].includes(role)) {
     return res.status(400).json({ error: 'Invalid account role' });
@@ -47,6 +90,9 @@ async function handleSignup(req, res) {
 
   const existing = await User.findOne({ phone });
   if (existing) return res.status(400).json({ error: 'Phone number already registered' });
+  if (email && await User.findOne({ email })) {
+    return res.status(400).json({ error: 'Email address already registered' });
+  }
 
   const hashedPassword = await bcrypt.hash(password, 10);
   const otp = generateOtp();
@@ -73,12 +119,14 @@ async function handleSignup(req, res) {
 }
 
 async function handleVerifyOtp(req, res) {
-  const { userId, otp } = req.body;
+  const { userId, otp } = req.body || {};
 
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
-  if (new Date() > user.otpExpiry) return res.status(400).json({ error: 'OTP expired' });
+  if (!user.otpExpiry || new Date() > user.otpExpiry) {
+    return res.status(400).json({ error: 'OTP expired' });
+  }
+  if (user.otp !== normalizeIdentifier(otp)) return res.status(400).json({ error: 'Invalid OTP' });
 
   user.isVerified = true;
   user.otp = undefined;
@@ -100,48 +148,84 @@ async function handleVerifyOtp(req, res) {
   });
 }
 
-const HARDCODED_ADMIN_EMAIL = 'admin@serviqo.com';
-const HARDCODED_ADMIN_PASS = 'VeryStrongAdminPass1172';
-const ADMIN_TOTP = '123456';
-const PLACEHOLDER_ADMIN_ID = '000000000000000000000000';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const ADMIN_2FA_SECRET = process.env.ADMIN_2FA_SECRET?.replace(/\s+/g, '').toUpperCase();
+
+function verifyTotp(secret, token) {
+  if (!secret || !/^\d{6}$/.test(token)) return false;
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const character of secret) {
+    const value = alphabet.indexOf(character);
+    if (value < 0) return false;
+    bits += value.toString(2).padStart(5, '0');
+  }
+  const key = Buffer.from(
+    bits.match(/.{8}/g)?.map((byte) => Number.parseInt(byte, 2)) || [],
+  );
+  const counter = Math.floor(Date.now() / 30000);
+  for (let offset = -1; offset <= 1; offset += 1) {
+    const counterBuffer = Buffer.alloc(8);
+    counterBuffer.writeBigUInt64BE(BigInt(counter + offset));
+    const digest = crypto.createHmac('sha1', key).update(counterBuffer).digest();
+    const index = digest[digest.length - 1] & 15;
+    const value = (
+      ((digest[index] & 127) << 24)
+      | (digest[index + 1] << 16)
+      | (digest[index + 2] << 8)
+      | digest[index + 3]
+    ) % 1000000;
+    const expected = String(value).padStart(6, '0');
+    if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token))) return true;
+  }
+  return false;
+}
 
 async function resolveAdminCredentials(identifier, password) {
-  if (identifier === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_PASS) {
-    let user = await User.findOne({ email: identifier, role: 'admin' });
-    if (!user) user = await User.findOne({ role: 'admin' });
-    if (user) return user;
-    return {
-      _id: PLACEHOLDER_ADMIN_ID,
-      name: 'System Admin',
-      phone: '0000000000',
-      email: HARDCODED_ADMIN_EMAIL,
-      role: 'admin',
-    };
-  }
-
   const user = await User.findOne({
     $or: [{ phone: identifier }, { email: identifier }],
     role: 'admin',
   });
-  if (!user) return null;
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return null;
-  return user;
+  if (user) {
+    return await bcrypt.compare(password, user.password) ? user : null;
+  }
+
+  if (!ADMIN_EMAIL || identifier.toLowerCase() !== ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) {
+    return null;
+  }
+  return await bcrypt.compare(password, ADMIN_PASSWORD_HASH)
+    ? {
+      _id: process.env.ADMIN_USER_ID || '000000000000000000000000',
+      name: 'System Admin',
+      phone: '0000000000',
+      email: ADMIN_EMAIL,
+      role: 'admin',
+    }
+    : null;
 }
 
 async function handleLogin(req, res) {
-  const { identifier, password } = req.body;
+  const { password } = req.body || {};
+  const rawIdentifier = normalizeIdentifier(req.body?.identifier);
+  const isEmailIdentifier = rawIdentifier.includes('@');
+  const identifier = isEmailIdentifier ? normalizeEmail(rawIdentifier) : normalizePhone(rawIdentifier);
+  const lookupIdentifier = identifier;
+
+  if (!identifier || !password) {
+    return res.status(400).json({ error: 'Email/phone and password are required' });
+  }
 
   // Block all admin logins from the customer/worker login flow.
   // Admin authentication must go through /auth/admin-login only.
-  if (identifier === HARDCODED_ADMIN_EMAIL) {
+  if (ADMIN_EMAIL && lookupIdentifier === ADMIN_EMAIL) {
     return res.status(403).json({
       error: 'Admin accounts must sign in through the admin portal at /admin/login.',
     });
   }
 
   const user = await User.findOne({
-    $or: [{ phone: identifier }, { email: identifier }],
+    $or: [{ phone: identifier }, { email: lookupIdentifier }],
   });
 
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -178,7 +262,12 @@ async function handleLogin(req, res) {
 }
 
 async function handleAdminLogin(req, res) {
-  const { identifier, password, totp } = req.body;
+  const {
+    identifier: rawIdentifier,
+    password,
+    totp,
+  } = req.body || {};
+  const identifier = normalizeIdentifier(rawIdentifier);
 
   if (!identifier || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -187,8 +276,10 @@ async function handleAdminLogin(req, res) {
     return res.status(400).json({ error: 'Verification code is required.' });
   }
 
-  // TOTP check (demo: hardcoded 123456). In production replace with a real TOTP/HOTP verifier.
-  if (totp !== ADMIN_TOTP) {
+  if (!ADMIN_2FA_SECRET) {
+    return res.status(503).json({ error: 'Admin two-factor authentication is not configured.' });
+  }
+  if (!verifyTotp(ADMIN_2FA_SECRET, totp)) {
     return res.status(401).json({ error: 'Invalid verification code.' });
   }
 
@@ -213,7 +304,11 @@ async function handleAdminLogin(req, res) {
 }
 
 async function handleVerifyAdminCredentials(req, res) {
-  const { identifier, password } = req.body;
+  const {
+    identifier: rawIdentifier,
+    password,
+  } = req.body || {};
+  const identifier = normalizeIdentifier(rawIdentifier);
   if (!identifier || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
@@ -233,40 +328,77 @@ async function handleLogout(req, res) {
 }
 
 async function handleForgotPassword(req, res) {
-  const { identifier } = req.body;
+  const rawPhone = req.body?.phone;
+  if (Array.isArray(rawPhone) || typeof rawPhone !== 'string') {
+    return res.status(400).json({ error: 'Enter one registered phone number' });
+  }
+  const phone = normalizePhone(rawPhone);
+  if (!/^\+92\d{10}$/.test(phone)) {
+    return res.status(400).json({ error: 'Enter a valid 10-digit Pakistani phone number' });
+  }
 
-  const user = await User.findOne({
-    $or: [{ phone: identifier }, { email: identifier }],
-  });
+  const user = await User.findOne({ phone });
+  if (!user) return res.status(404).json({ error: 'No account found with this phone number' });
 
-  if (!user) return res.status(404).json({ error: 'No account found with this phone or email' });
-
-  const otp = generateOtp();
-  user.otp = otp;
-  user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  user.passwordResetOtpHash = hashPasswordResetOtp(otp).toString('hex');
+  user.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+  user.passwordResetOtpAttempts = 0;
   await user.save();
 
-  const deliveryError = await deliverOtp(user.phone, otp);
-  if (deliveryError) return res.status(503).json({ error: deliveryError });
+  const deliveryError = await deliverOtp(phone, otp);
+  if (deliveryError) {
+    user.passwordResetOtpHash = undefined;
+    user.passwordResetOtpExpires = undefined;
+    await user.save();
+    return res.status(503).json({ error: deliveryError });
+  }
 
   return res.json({
-    message: 'OTP sent for password reset',
+    message: 'Password reset OTP sent via WhatsApp',
     userId: user._id,
     ...(process.env.NODE_ENV === 'development' && { otp }),
   });
 }
 
 async function handleResetPassword(req, res) {
-  const { userId, otp, newPassword } = req.body;
-
+  const { userId, otp: rawOtp, newPassword } = req.body || {};
+  const otp = normalizeIdentifier(rawOtp);
+  if (!userId || !/^\d{6}$/.test(otp)) {
+    return res.status(400).json({ error: 'A user ID and 6-digit WhatsApp OTP are required' });
+  }
   const user = await User.findById(userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
-  if (new Date() > user.otpExpiry) return res.status(400).json({ error: 'OTP expired' });
+  if (!user) return res.status(404).json({ error: 'Password reset request not found' });
+  if (!user.passwordResetOtpExpires || user.passwordResetOtpExpires <= new Date()) {
+    return res.status(400).json({ error: 'Password reset OTP expired. Request a new code.' });
+  }
+  if (user.passwordResetOtpAttempts >= 5) {
+    return res.status(429).json({ error: 'Too many incorrect codes. Request a new OTP.' });
+  }
+  const submittedHash = hashPasswordResetOtp(otp);
+  const storedHash = Buffer.from(user.passwordResetOtpHash || '', 'hex');
+  if (storedHash.length !== submittedHash.length || !crypto.timingSafeEqual(storedHash, submittedHash)) {
+    user.passwordResetOtpAttempts = (user.passwordResetOtpAttempts || 0) + 1;
+    if (user.passwordResetOtpAttempts >= 5) {
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpires = undefined;
+    }
+    await user.save();
+    if (user.passwordResetOtpAttempts >= 5) {
+      return res.status(429).json({ error: 'Too many incorrect codes. Request a new OTP.' });
+    }
+    return res.status(400).json({ error: 'Invalid password reset OTP' });
+  }
+  if (!isValidPassword(newPassword)) {
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters and include an uppercase letter, number, and special character',
+    });
+  }
 
   user.password = await bcrypt.hash(newPassword, 10);
-  user.otp = undefined;
-  user.otpExpiry = undefined;
+  user.passwordResetOtpHash = undefined;
+  user.passwordResetOtpExpires = undefined;
+  user.passwordResetOtpAttempts = 0;
   await user.save();
 
   return res.json({ message: 'Password reset successfully' });
@@ -293,7 +425,11 @@ async function handleResendOtp(req, res) {
 }
 
 async function handleRequestLoginOtp(req, res) {
-  const { phone, role } = req.body;
+  const { phone: rawPhone, role } = req.body || {};
+  const phone = normalizeIdentifier(rawPhone);
+  if (!phone || !['customer', 'worker'].includes(role)) {
+    return res.status(400).json({ error: 'A valid customer or worker phone and role are required' });
+  }
 
   const user = await User.findOne({ phone, role });
   if (!user) {
@@ -302,6 +438,9 @@ async function handleRequestLoginOtp(req, res) {
 
   if (!user.isActive) {
     return res.status(403).json({ error: 'Account suspended. Contact support.' });
+  }
+  if (!user.isVerified) {
+    return res.status(403).json({ error: 'Account not verified', userId: user._id });
   }
 
   const otp = generateOtp();
@@ -320,16 +459,17 @@ async function handleRequestLoginOtp(req, res) {
 }
 
 async function handleVerifyLoginOtp(req, res) {
-  const { userId, otp } = req.body;
+  const { userId, otp } = req.body || {};
 
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
-  if (new Date() > user.otpExpiry) return res.status(400).json({ error: 'OTP expired' });
+  if (!user.otpExpiry || new Date() > user.otpExpiry) {
+    return res.status(400).json({ error: 'OTP expired' });
+  }
+  if (user.otp !== normalizeIdentifier(otp)) return res.status(400).json({ error: 'Invalid OTP' });
 
   user.otp = undefined;
   user.otpExpiry = undefined;
-  user.isVerified = true; // Ensure user is marked verified if logging in via OTP
   await user.save();
 
   const token = createToken(user);
@@ -374,7 +514,9 @@ async function createAdminAccount(req, res) {
 }
 
 async function checkAvailability(req, res) {
-  const { phone, email } = req.body;
+  const { phone: rawPhone, email: rawEmail } = req.body || {};
+  const phone = normalizeIdentifier(rawPhone);
+  const email = normalizeEmail(rawEmail);
   const results = { phoneAvailable: true, emailAvailable: true };
 
   if (phone) {

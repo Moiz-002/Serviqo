@@ -1,0 +1,91 @@
+@startuml
+title Serviqo - Module 8: Admin Dashboard & Monitoring
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Administrator as Admin
+actor Customer
+actor Worker
+
+rectangle "Serviqo Admin Dashboard & Monitoring (Web)" {
+  usecase "View platform analytics" as ViewAnalytics
+  usecase "View user, job,\nverification and dispute totals" as ViewMetrics
+
+  usecase "Manage user accounts" as ManageUsers
+  usecase "Search, filter and\npaginate users" as FindUsers
+  usecase "Activate or suspend\nan account" as ChangeUserStatus
+
+  usecase "Review worker verification" as ReviewVerification
+  usecase "View submitted identity\ndocuments" as ViewDocuments
+  usecase "Approve worker verification" as ApproveWorker
+  usecase "Reject with a required\nreview note" as RejectWorker
+
+  usecase "Monitor marketplace jobs" as MonitorJobs
+  usecase "View and filter jobs\nby status or category" as ViewJobs
+
+  usecase "Manage disputes" as ManageDisputes
+  usecase "Review disputes" as ReviewDisputes
+  usecase "Record dispute resolution" as ResolveDispute
+
+  usecase "Submit a job-related dispute" as RaiseDispute
+  usecase "View own submitted or\nreceived disputes" as ViewOwnDisputes
+}
+
+Admin -- ViewAnalytics
+Admin -- ManageUsers
+Admin -- ReviewVerification
+Admin -- MonitorJobs
+Admin -- ManageDisputes
+
+Customer -- RaiseDispute
+Worker -- RaiseDispute
+Customer -- ViewOwnDisputes
+Worker -- ViewOwnDisputes
+
+ViewAnalytics ..> ViewMetrics : <<include>>
+ManageUsers ..> FindUsers : <<include>>
+ChangeUserStatus ..> ManageUsers : <<extend>>
+
+ReviewVerification ..> ViewDocuments : <<include>>
+ApproveWorker ..> ReviewVerification : <<extend>>
+RejectWorker ..> ReviewVerification : <<extend>>
+
+MonitorJobs ..> ViewJobs : <<include>>
+
+ManageDisputes ..> ReviewDisputes : <<include>>
+ResolveDispute ..> ReviewDisputes : <<extend>>
+
+note right of ManageUsers
+The admin can search, filter and
+paginate user records, then activate
+or suspend an account. The implemented
+admin API does not change user roles.
+end note
+
+note right of ReviewVerification
+Admins review worker-submitted documents.
+Rejection requires a note explaining
+what the worker should correct.
+end note
+
+note bottom of MonitorJobs
+Admin job monitoring is read-only and
+supports status/category filters.
+end note
+
+note bottom of ManageDisputes
+Admins can view and update dispute
+resolution/status. Customers and workers
+can submit disputes and view disputes
+in which they are involved.
+end note
+
+note bottom of ViewAnalytics
+Admin dashboard functionality is
+available through the web portal.
+end note
+
+@enduml

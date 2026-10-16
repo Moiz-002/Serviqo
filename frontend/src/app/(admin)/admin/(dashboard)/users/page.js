@@ -19,20 +19,27 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchUsers = useCallback(() => {
     setIsLoading(true);
     const params = new URLSearchParams();
-    if (searchTerm) params.set('search', searchTerm);
+    if (searchTerm) params.set('q', searchTerm);
     if (roleFilter !== 'all') params.set('role', roleFilter);
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    params.set('page', String(page));
+    params.set('limit', '10');
     api.getAdminUsers(params.toString())
       .then((data) => {
         setUsers(data.users || []);
         setTotal(data.total || (data.users || []).length);
+        setTotalPages(data.totalPages || 1);
       })
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, statusFilter, page]);
 
   useEffect(() => {
     const t = setTimeout(fetchUsers, 300);
@@ -40,14 +47,21 @@ export default function UserManagementPage() {
   }, [fetchUsers]);
 
   const handleStatusToggle = async (user) => {
-    const newStatus = user.status === 'active' ? 'suspended' : 'active';
+    const newIsActive = user.isActive === false;
     try {
-      await api.updateUserStatus(user._id || user.id, { status: newStatus });
-      setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
+      await api.updateUserStatus(user._id || user.id, { isActive: newIsActive });
+      setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, isActive: newIsActive } : u)));
     } catch {}
   };
 
   const filteredUsers = users;
+
+  const getAccountStatus = (user) => {
+    if (user.isActive === false) return 'suspended';
+    if (user.role === 'worker' && user.cnicRejectionReason) return 'rejected';
+    if (user.role === 'worker') return user.cnicVerified ? 'approved' : 'pending';
+    return user.isVerified ? 'approved' : 'pending';
+  };
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -94,9 +108,14 @@ export default function UserManagementPage() {
             <option value="customer">Customers</option>
             <option value="worker">Workers</option>
           </select>
-          <button className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
-            <Filter className="w-5 h-5" />
-          </button>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} aria-label="Filter by status" className="px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 font-medium">
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+            <option value="inactive">Inactive</option>
+          </select>
         </div>
       </div>
 
@@ -139,12 +158,11 @@ export default function UserManagementPage() {
                     </span>
                   </td>
                   <td className="px-6 py-5">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(user.status || 'active')}`}>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(getAccountStatus(user))}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${
-                        user.status === 'active' || !user.status ? 'bg-cyan-600' :
-                        user.status === 'suspended' ? 'bg-error' : 'bg-warning'
+                        getAccountStatus(user) === 'rejected' || getAccountStatus(user) === 'suspended' ? 'bg-error' : getAccountStatus(user) === 'pending' ? 'bg-warning' : 'bg-cyan-600'
                       }`}></div>
-                      {(user.status || 'active').toUpperCase()}
+                      {getAccountStatus(user).toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-5 text-sm text-neutral-500">
@@ -155,9 +173,10 @@ export default function UserManagementPage() {
                       <button
                         onClick={() => handleStatusToggle(user)}
                         className="p-2 text-neutral-400 hover:text-navy-600 transition-colors"
-                        title={user.status === 'suspended' ? 'Activate User' : 'Suspend User'}
+                        title={user.isActive === false ? 'Activate User' : 'Suspend User'}
+                        aria-label={user.isActive === false ? 'Activate User' : 'Suspend User'}
                       >
-                        {user.status === 'suspended' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                        {user.isActive === false ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       </button>
                     </div>
                   </td>
@@ -171,8 +190,9 @@ export default function UserManagementPage() {
         <div className="px-6 py-4 bg-neutral-50/50 border-t border-neutral-200 flex items-center justify-between">
           <p className="text-sm text-neutral-500">Showing {filteredUsers.length} of {total} users</p>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">Previous</button>
-            <button className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50">Next</button>
+            <button onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1 || isLoading} className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">Previous</button>
+            <span className="px-3 py-2 text-sm font-semibold text-neutral-500">Page {page} of {totalPages}</span>
+            <button onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages || isLoading} className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">Next</button>
           </div>
         </div>
       </div>

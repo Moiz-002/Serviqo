@@ -155,7 +155,7 @@ export default function AdminLoginPage() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors({ ...errors, password: null });
                     }}
-                    placeholder="VeryStrongAdminPass1172"
+                    placeholder="Enter your admin password"
                     className={`w-full rounded-2xl border px-10 py-3 text-text-primary transition-all outline-none ${
                       errors.password
                         ? 'border-error bg-error-light'
@@ -201,10 +201,6 @@ export default function AdminLoginPage() {
                     Invalid code. Please try again.
                   </p>
                 )}
-                <p className="text-xs text-text-tertiary text-center">
-                  For demo only: use <strong>123456</strong>
-                </p>
-
                 <button
                   type="button"
                   onClick={() => setStep('credentials')}

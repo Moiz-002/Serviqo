@@ -1,0 +1,77 @@
+@startuml
+title Serviqo - Module 7: Mobile Dashboard & Job Access (Flutter)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor "Serviqo Central Backend API" as Backend
+actor "Realtime Socket Service" as Realtime
+
+rectangle "Serviqo Flutter Mobile Application" {
+  usecase "Maintain authenticated\nmobile session" as MaintainSession
+  usecase "View role-based\nmobile dashboard" as Dashboard
+  usecase "View active jobs and\nnotifications" as DashboardContent
+
+  usecase "Create and manage\nservice requests" as ManageRequests
+  usecase "Browse available jobs" as BrowseJobs
+  usecase "Submit a bid" as SubmitBid
+
+  usecase "Track job progress\nand status updates" as TrackJob
+  usecase "Access messaging" as Messaging
+  usecase "Access payment information" as PaymentInfo
+}
+
+Customer -- MaintainSession
+Worker -- MaintainSession
+Customer -- Dashboard
+Worker -- Dashboard
+Customer -- ManageRequests
+Worker -- BrowseJobs
+Worker -- SubmitBid
+Customer -- TrackJob
+Worker -- TrackJob
+Customer -- Messaging
+Worker -- Messaging
+Customer -- PaymentInfo
+Worker -- PaymentInfo
+
+Dashboard ..> MaintainSession : <<include>>
+Dashboard ..> DashboardContent : <<include>>
+ManageRequests -- Backend
+BrowseJobs -- Backend
+SubmitBid -- Backend
+TrackJob -- Backend
+Messaging -- Backend
+MaintainSession -- Backend
+DashboardContent -- Backend
+DashboardContent -- Realtime
+TrackJob -- Realtime
+Messaging -- Realtime
+PaymentInfo -- Backend
+
+note bottom of Dashboard
+Mobile app features use the shared
+Serviqo backend APIs and authenticated
+sessions; the mobile client does not
+maintain a separate marketplace backend.
+end note
+
+note right of PaymentInfo
+Payment information access is part of
+the supplied Module 7 requirements but
+depends on Module 6, which is not yet
+implemented. No payment capability is
+currently available in the backend.
+end note
+
+note bottom of SubmitBid
+Bid submission remains subject to
+central backend rules, including worker
+verification and job eligibility.
+end note
+
+@enduml

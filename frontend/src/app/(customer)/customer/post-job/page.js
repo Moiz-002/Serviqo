@@ -25,6 +25,7 @@ import FileUpload from '@/components/ui/FileUpload';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { StepIndicator } from '@/components/auth/StepIndicator';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const initialState = {
   step: 1,
@@ -69,6 +70,7 @@ export default function PostJobPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const { push: showToast } = useToast();
 
   const jobSteps = [
     { id: 1, label: 'Service', icon: Wrench },
@@ -110,9 +112,11 @@ export default function PostJobPage() {
       formData.append('urgency', state.urgency);
       state.images.forEach((file) => formData.append('images', file));
       await api.createJob(formData);
+      showToast('Your job has been posted successfully.', 'success');
       router.push('/customer/my-jobs');
     } catch (err) {
       setSubmitError(err.message || 'Unable to post your job. Please try again.');
+      showToast(err.message || 'Unable to post your job. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }

@@ -13,9 +13,14 @@ import {
   Tag,
   X,
   Send,
+  MessageSquare,
+  Upload,
+  FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import * as api from '@/lib/api';
+import { getRealtimeSocket } from '@/lib/realtime';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const StatCard = ({ icon: Icon, label, value, trend, colorClass }) => (
   <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm">
@@ -46,11 +51,28 @@ export default function WorkerDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidError, setBidError] = useState('');
   const [bidSuccess, setBidSuccess] = useState('');
+  const [documentFiles, setDocumentFiles] = useState({ front: null, back: null });
+  const { push: showToast } = useToast();
 
   useEffect(() => {
     api.getMe().then((data) => setWorker(data.user || data)).catch(() => {});
     api.getMyBids().then((data) => setBids(data.bids || [])).catch(() => {});
     api.getJobs().then((data) => setOpenJobs(data.jobs || [])).catch(() => {});
+    const socket = getRealtimeSocket();
+    const onDecision = ({ bidId, status }) => {
+      setBids((current) => current.map((bid) => (
+        String(bid._id) === String(bidId) ? { ...bid, status } : bid
+      )));
+    };
+    const onVerification = ({ status, reason }) => {
+      setWorker((current) => current ? { ...current, cnicVerified: status === 'approved', cnicRejectionReason: reason || '' } : current);
+    };
+    socket.on('bid:decision', onDecision);
+    socket.on('worker:verification', onVerification);
+    return () => {
+      socket.off('bid:decision', onDecision);
+      socket.off('worker:verification', onVerification);
+    };
   }, []);
 
   const firstName = worker?.name?.split(' ')[0] || 'there';
@@ -65,6 +87,10 @@ export default function WorkerDashboard() {
   };
 
   const handleBidSubmit = async () => {
+    if (!worker?.cnicVerified) {
+      setBidError('Your worker documents must be approved before you can submit bids.');
+      return;
+    }
     const amount = Number(bidForm.amount);
     const proposal = bidForm.proposal.trim();
     const estimatedDays = bidForm.estimatedDays ? Number(bidForm.estimatedDays) : undefined;
@@ -90,12 +116,34 @@ export default function WorkerDashboard() {
         estimatedDays,
       });
       setBidSuccess('Bid submitted successfully!');
+      showToast('Your bid was sent successfully.', 'success');
       api.getMyBids().then((data) => setBids(data.bids || [])).catch(() => {});
       setTimeout(() => setBidModal(null), 1500);
     } catch (err) {
       setBidError(err.message || 'Failed to submit bid.');
+      showToast(err.message || 'Failed to submit bid.', 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDocumentUpload = async () => {
+    if (!documentFiles.front && !documentFiles.back) return;
+    const formData = new FormData();
+    if (documentFiles.front) formData.append('cnicFront', documentFiles.front);
+    if (documentFiles.back) formData.append('cnicBack', documentFiles.back);
+    try {
+      const data = await api.uploadCnic(formData);
+      setWorker((current) => ({
+        ...current,
+        ...(data.user || {}),
+        cnicVerified: false,
+        cnicRejectionReason: '',
+      }));
+      setDocumentFiles({ front: null, back: null });
+      showToast('Documents submitted. The platform team will verify them within 1 working day.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Unable to upload documents.', 'error');
     }
   };
 
@@ -110,11 +158,67 @@ export default function WorkerDashboard() {
           <p className="text-neutral-500 mt-1">Here&apos;s what&apos;s happening with your profile today.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/worker/messages" className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary-subtle px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/10">
+            <MessageSquare className="h-4 w-4" />
+            Messages
+          </Link>
           <Link href="/worker/profile" className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-medium hover:bg-neutral-50 transition-colors">
             View Profile
           </Link>
         </div>
       </div>
+
+      {!worker?.cnicVerified && (
+        <section className="overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-cyan-50 shadow-sm">
+          <div className="border-b border-amber-100 px-5 py-5 sm:px-7">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Worker verification</p>
+                <h2 className="mt-1 text-lg font-black text-neutral-900">
+                  {worker?.cnicRejectionReason ? 'Update the requested documents' : worker?.cnicFront ? 'Documents submitted for review' : 'Verification required before bidding'}
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-600">
+                  {worker?.cnicRejectionReason || (worker?.cnicFront
+                    ? 'Your documents have been submitted. The Serviqo platform team will verify them within the next 1 working day.'
+                    : 'Upload clear images of both sides of your CNIC. The Serviqo platform team will review them before you can submit bids.')}
+                </p>
+              </div>
+            </div>
+          </div>
+          {worker?.cnicFront && !worker?.cnicRejectionReason ? (
+            <div className="flex items-center gap-3 px-5 pb-6 text-sm font-bold text-amber-800 sm:px-7">
+              <Clock className="h-5 w-5 shrink-0" />
+              Under review — bidding will unlock after platform approval.
+            </div>
+          ) : (
+          <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+            {[
+              { side: 'front', label: 'CNIC front side' },
+              { side: 'back', label: 'CNIC back side' },
+            ].map(({ side, label }) => (
+              <label key={side} htmlFor={`cnic-${side}`} className="group cursor-pointer">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-neutral-500">{label}</span>
+                <span className="flex min-h-16 items-center gap-3 rounded-2xl border border-dashed border-neutral-300 bg-white px-4 py-3 transition-colors group-hover:border-primary group-hover:bg-primary-subtle">
+                  <span className="rounded-xl bg-primary-subtle p-2 text-primary"><Upload className="h-4 w-4" /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-neutral-800">{documentFiles[side]?.name || 'Choose an image'}</span>
+                    <span className="block text-xs text-neutral-500">JPG or PNG, up to 5 MB</span>
+                  </span>
+                </span>
+                <input id={`cnic-${side}`} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => setDocumentFiles((current) => ({ ...current, [side]: event.target.files?.[0] || null }))} />
+              </label>
+            ))}
+            <button type="button" onClick={handleDocumentUpload} disabled={!documentFiles.front && !documentFiles.back} className="inline-flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+              <Upload className="h-4 w-4" />
+              Upload for review
+            </button>
+          </div>
+          )}
+        </section>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -176,10 +280,10 @@ export default function WorkerDashboard() {
                     </div>
                     <button
                       onClick={() => openBidModal(job)}
-                      disabled={alreadyBid(job._id)}
+                      disabled={alreadyBid(job._id) || !worker?.cnicVerified}
                       className="shrink-0 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-600 disabled:bg-neutral-200 disabled:text-neutral-400 transition-all shadow-sm shadow-primary-500/20"
                     >
-                      {alreadyBid(job._id) ? 'Bid Sent' : 'Place Bid'}
+                      {alreadyBid(job._id) ? 'Bid Sent' : worker?.cnicVerified ? 'Place Bid' : 'Verify to bid'}
                     </button>
                   </div>
                 </div>
@@ -192,11 +296,11 @@ export default function WorkerDashboard() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <div className="bg-primary-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
+          <div className="bg-primary text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-800 rounded-full -mr-16 -mt-16 opacity-50"></div>
             <div className="relative z-10">
-              <h3 className="text-xl font-bold">Serviqo Pro Tips</h3>
-              <p className="text-primary-100 text-sm mt-3 leading-relaxed">
+              <h3 className="!text-white text-xl font-bold">Serviqo Pro Tips</h3>
+              <p className="text-sm mt-3 leading-relaxed">
                 Profiles with more than 5 portfolio images get <span className="text-accent-400 font-bold">45% more job invitations</span>.
               </p>
               <Link href="/worker/portfolio" className="inline-block mt-6 px-5 py-2 bg-white text-primary-900 rounded-full text-sm font-bold hover:bg-primary-50 transition-colors">

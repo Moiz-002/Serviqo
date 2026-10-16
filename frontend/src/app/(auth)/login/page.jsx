@@ -60,7 +60,10 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const data = await api.login({ identifier: email, password });
+      const identifier = email.includes('@')
+        ? email.trim().toLowerCase()
+        : `+92${email.replace(/\D/g, '')}`;
+      const data = await api.login({ identifier, password });
       const role = data.user?.role;
       if (role === 'worker') {
         router.push('/worker/dashboard');
@@ -238,7 +241,7 @@ export default function LoginPage() {
 
           {/* Sign Up Link */}
           <div className="border-t border-border pt-4 text-center space-y-2">
-            <p className="text-sm text-text-secondary">Don't have an account yet?</p>
+            <p className="text-sm text-text-secondary">Don&apos;t have an account yet?</p>
             <a
               href="/signup"
               className="block text-text-accent font-semibold hover:underline transition-colors"
@@ -250,7 +253,7 @@ export default function LoginPage() {
 
         {/* Terms */}
         <p className="text-center mt-6 text-xs text-text-tertiary">
-          By logging in, you agree to Serviqo's{' '}
+          By logging in, you agree to Serviqo&apos;s{' '}
           <a href="#" className="text-primary-600 hover:underline">
             Terms of Service
           </a>{' '}

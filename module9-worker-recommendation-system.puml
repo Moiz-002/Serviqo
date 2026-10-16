@@ -1,0 +1,63 @@
+@startuml
+title Serviqo - Module 9: Worker Recommendation System (Proposed)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor "Serviqo Web or Mobile Client" as Client
+actor "Recruiter AI Agent" as RecruiterAI
+actor "Serviqo Central Backend" as Backend
+
+rectangle "Serviqo Worker Recommendation System (Not Implemented)" {
+  usecase "Request worker\nrecommendations" as RequestRecommendations
+  usecase "Analyze service-request\nrequirements" as AnalyzeRequirements
+  usecase "Retrieve relevant\nworker profile information" as RetrieveProfiles
+  usecase "Match workers to\nservice requirements" as MatchWorkers
+  usecase "Rank suitable workers" as RankWorkers
+  usecase "Present recommended\nworkers to customer" as PresentRecommendations
+  usecase "Provide recommendation\nfeedback" as ProvideFeedback
+  usecase "Use feedback and interaction\ndata to improve recommendations" as ImproveRecommendations
+}
+
+Customer -- RequestRecommendations
+Customer -- ProvideFeedback
+Client -- RequestRecommendations
+Client -- PresentRecommendations
+Client -- ProvideFeedback
+
+RequestRecommendations ..> AnalyzeRequirements : <<include>>
+RequestRecommendations ..> RetrieveProfiles : <<include>>
+RequestRecommendations ..> MatchWorkers : <<include>>
+MatchWorkers ..> RankWorkers : <<include>>
+RequestRecommendations ..> PresentRecommendations : <<include>>
+ProvideFeedback ..> ImproveRecommendations : <<include>>
+
+AnalyzeRequirements -- RecruiterAI
+MatchWorkers -- RecruiterAI
+RankWorkers -- RecruiterAI
+ImproveRecommendations -- RecruiterAI
+RetrieveProfiles -- Backend
+ImproveRecommendations -- Backend
+
+note right of RankWorkers
+Planned ranking attributes include
+skills, experience, location,
+ratings, and availability.
+end note
+
+note bottom of ImproveRecommendations
+Feedback and interaction data must be
+relevant to recommendations and handled
+under applicable privacy and access rules.
+end note
+
+note bottom of RequestRecommendations
+This is a proposed AI-assisted feature.
+No worker-recommendation AI agent or
+recommendation endpoint is implemented yet.
+end note
+
+@enduml

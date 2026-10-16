@@ -209,7 +209,8 @@ async function uploadCnic(req, res) {
   if (updates.cnicFront && user.cnicFront) await deleteFromCloudinary(user.cnicFront);
   if (updates.cnicBack && user.cnicBack) await deleteFromCloudinary(user.cnicBack);
 
-  Object.assign(user, updates);
+  Object.assign(user, updates, { cnicVerified: false });
+  user.cnicRejectionReason = undefined;
   await user.save();
 
   return res.json({ message: 'CNIC uploaded successfully', user: {

@@ -58,7 +58,8 @@ export default function AdminDashboardLayout({ children }) {
 
   // Close sidebar when route changes
   useEffect(() => {
-    setIsSidebarOpen(false);
+    const closeTimer = window.setTimeout(() => setIsSidebarOpen(false), 0);
+    return () => window.clearTimeout(closeTimer);
   }, [pathname]);
 
   // Prevent body scroll when mobile sidebar is open
@@ -180,12 +181,12 @@ export default function AdminDashboardLayout({ children }) {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <NavContent />
+          {NavContent()}
         </aside>
 
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-neutral-200 overflow-y-auto shrink-0">
-          <NavContent />
+          {NavContent()}
         </aside>
 
         {/* Main Content */}
@@ -210,4 +211,3 @@ export default function AdminDashboardLayout({ children }) {
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const path = require('path');
@@ -15,7 +16,9 @@ const messageRouter = require('./routes/message');
 const reviewRouter = require('./routes/review');
 const adminRouter = require('./routes/admin');
 const disputeRouter = require('./routes/dispute');
+const notificationRouter = require('./routes/notification');
 const { startWhatsAppOtp } = require('./services/whatsapp');
+const configureSocketServer = require('./services/socket');
 
 const app = express();
 
@@ -40,6 +43,7 @@ app.use('/api/messages', messageRouter);
 app.use('/api/reviews', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/disputes', disputeRouter);
+app.use('/api/notifications', notificationRouter);
 
 app.use((err, req, res, next) => {
   console.error(err.message);
@@ -55,7 +59,9 @@ async function startServer() {
   });
 
   const PORT = process.env.PORT || 5000;
-  return app.listen(PORT, () => {
+  const server = http.createServer(app);
+  configureSocketServer(server, [process.env.FRONTEND_ORIGIN || 'http://localhost:3000', 'https://serviqo-three.vercel.app']);
+  return server.listen(PORT, () => {
     console.log(`Serviqo backend running on port ${PORT}`);
   });
 }

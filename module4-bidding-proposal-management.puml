@@ -1,0 +1,73 @@
+@startuml
+title Serviqo - Module 4: Bidding & Proposal Management
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Worker
+actor Customer
+actor Administrator as Admin
+actor "Realtime Notification Service" as Realtime
+
+rectangle "Serviqo Bidding & Proposal Management" {
+  usecase "Submit a bid on an\nopen job" as SubmitBid
+  usecase "Provide bid amount,\nproposal and estimated days" as ProvideProposal
+  usecase "View own submitted bids\nand their statuses" as ViewOwnBids
+
+  usecase "Review bids for\ncustomer's job" as ReviewBids
+  usecase "View proposal, price,\ntimeline and worker details" as CompareBids
+  usecase "Accept a pending bid" as AcceptBid
+  usecase "Reject a pending bid" as RejectBid
+  usecase "Assign worker and set job active" as AssignWorker
+  usecase "Reject other bids for\nthe accepted job" as CloseOtherBids
+
+  usecase "View bids for a job" as AdminViewBids
+  usecase "Notify users of bid\nsubmission or decision" as NotifyUsers
+}
+
+Worker -- SubmitBid
+Worker -- ViewOwnBids
+Customer -- ReviewBids
+Admin -- AdminViewBids
+
+SubmitBid ..> ProvideProposal : <<include>>
+SubmitBid ..> NotifyUsers : <<include>>
+ViewOwnBids ..> NotifyUsers : <<extend>>
+
+ReviewBids ..> CompareBids : <<include>>
+AcceptBid ..> ReviewBids : <<extend>>
+RejectBid ..> ReviewBids : <<extend>>
+AcceptBid ..> AssignWorker : <<include>>
+AcceptBid ..> CloseOtherBids : <<include>>
+AcceptBid ..> NotifyUsers : <<include>>
+RejectBid ..> NotifyUsers : <<include>>
+NotifyUsers -- Realtime
+
+note right of SubmitBid
+Only active, platform-verified workers
+can bid. The job must be open, workers
+cannot bid on their own job, and each
+worker may submit only one bid per job.
+end note
+
+note right of ReviewBids
+Only the customer who owns the job can
+review, accept, or reject its bids.
+Only pending bids may be decided.
+end note
+
+note bottom of AcceptBid
+Accepting a bid assigns its worker,
+changes the job to active, and changes
+the other bids for that job to rejected.
+end note
+
+note right of AdminViewBids
+Admins may view bids through the
+admin-authorized bid lookup route.
+They cannot submit, accept, or reject bids.
+end note
+
+@enduml

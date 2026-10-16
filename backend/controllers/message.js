@@ -1,5 +1,6 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const { emitToUsers } = require('../services/realtime');
 
 async function getConversations(req, res) {
   const conversations = await Conversation.find({ participants: req.user._id })
@@ -52,7 +53,8 @@ async function getMessages(req, res) {
 }
 
 async function sendMessage(req, res) {
-  const { text } = req.body;
+  const text = typeof req.body.text === 'string' ? req.body.text : req.body.content;
+  if (!text?.trim()) return res.status(400).json({ error: 'Message text is required' });
 
   const conversation = await Conversation.findOne({
     _id: req.params.conversationId,
@@ -64,14 +66,19 @@ async function sendMessage(req, res) {
   const message = await Message.create({
     conversation: req.params.conversationId,
     sender: req.user._id,
-    text,
+    text: text.trim(),
   });
 
-  conversation.lastMessage = text;
+  conversation.lastMessage = text.trim();
   conversation.lastMessageAt = new Date();
   await conversation.save();
 
   await message.populate('sender', 'name profilePicture');
+  emitToUsers(
+    conversation.participants.filter((participant) => String(participant) !== String(req.user._id)),
+    'message:created',
+    { conversationId: String(conversation._id), message },
+  );
 
   return res.status(201).json({ message });
 }

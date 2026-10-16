@@ -97,7 +97,7 @@ export default function DisputeManagementPage() {
                       </div>
                       <div className="flex items-center gap-2 text-neutral-500">
                         <Flag className="w-4 h-4" />
-                        <span className="font-semibold text-neutral-700">Against:</span> {dispute.againstUser?.name || 'Unknown'}
+                        <span className="font-semibold text-neutral-700">Against:</span> {dispute.against?.name || dispute.againstUser?.name || 'Unknown'}
                       </div>
                       <div className="flex items-center gap-2 text-neutral-500">
                         <MessageSquare className="w-4 h-4" />

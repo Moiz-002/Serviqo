@@ -1,5 +1,6 @@
 import { Inter, Merriweather, Fira_Code } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -46,7 +47,7 @@ export default function RootLayout({ children }) {
       className={`${inter.variable} ${merriweather.variable} ${firaCode.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans"><ToastProvider>{children}</ToastProvider></body>
     </html>
   );
 }

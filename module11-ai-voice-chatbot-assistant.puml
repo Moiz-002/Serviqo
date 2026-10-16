@@ -1,0 +1,84 @@
+@startuml
+title Serviqo - Module 11: AI Voice/Chatbot Assistant (Proposed)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor "Serviqo Web or Mobile Client" as Client
+actor "Conversational AI Assistant" as Assistant
+actor "Speech Recognition Service" as SpeechRecognition
+actor "Text-to-Speech Service" as TextToSpeech
+actor "Serviqo Central Backend" as Backend
+
+rectangle "Serviqo AI Voice/Chatbot Assistant (Not Implemented)" {
+  usecase "Ask the assistant for help" as AskAssistant
+  usecase "Exchange natural-language\ntext messages" as TextConversation
+  usecase "Select English or Urdu" as SelectLanguage
+  usecase "Speak a request" as VoiceInput
+  usecase "Convert speech to text" as TranscribeSpeech
+  usecase "Hear spoken assistant\nresponses" as HearResponse
+  usecase "Convert response text\nto speech" as SynthesizeSpeech
+
+  usecase "Find suitable service\ncategories" as FindCategory
+  usecase "Describe service\nrequirements" as DescribeRequirements
+  usecase "Guide customer through\ncreating a service request" as GuideRequest
+  usecase "Guide user through\nplatform navigation and FAQs" as ProvideGuidance
+  usecase "Retrieve relevant service\nand job information" as RetrieveInformation
+
+  usecase "Apply authenticated\nrole-based permissions" as ApplyPermissions
+  usecase "Request confirmation before\nsubmitting or changing a request" as ConfirmAction
+  usecase "Submit or modify a request" as ManageRequest
+}
+
+Customer -- AskAssistant
+Worker -- AskAssistant
+Client -- AskAssistant
+
+AskAssistant ..> TextConversation : <<include>>
+AskAssistant ..> SelectLanguage : <<include>>
+AskAssistant ..> ProvideGuidance : <<include>>
+AskAssistant ..> FindCategory : <<extend>>
+AskAssistant ..> DescribeRequirements : <<extend>>
+AskAssistant ..> GuideRequest : <<extend>>
+AskAssistant ..> RetrieveInformation : <<extend>>
+
+VoiceInput ..> TranscribeSpeech : <<include>>
+VoiceInput -- SpeechRecognition
+HearResponse ..> SynthesizeSpeech : <<include>>
+SynthesizeSpeech -- TextToSpeech
+Client -- VoiceInput
+Client -- HearResponse
+
+GuideRequest ..> ApplyPermissions : <<include>>
+GuideRequest ..> ConfirmAction : <<include>>
+ConfirmAction ..> ManageRequest : <<extend>>
+
+RetrieveInformation -- Backend
+ManageRequest -- Backend
+ApplyPermissions -- Backend
+
+note right of ConfirmAction
+The assistant must obtain explicit
+user confirmation before submitting
+or modifying a service request.
+end note
+
+note bottom of ApplyPermissions
+Any user-specific information or action
+must be authorized by the shared backend
+for the authenticated user's role.
+end note
+
+note bottom of AskAssistant
+This is a proposed web and mobile
+assistant. The conversational AI,
+English/Urdu handling, speech services,
+and assistant-specific APIs are not
+currently implemented.
+end note
+
+@enduml

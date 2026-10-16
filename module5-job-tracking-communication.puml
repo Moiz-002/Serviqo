@@ -1,0 +1,66 @@
+@startuml
+title Serviqo - Module 5: Job Tracking & Communication
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor "Realtime Socket Service" as Realtime
+
+rectangle "Serviqo Job Tracking & Communication" {
+  usecase "Track a job's status" as TrackJob
+  usecase "View job history and\ncurrent status" as ViewHistory
+  usecase "Track open, active/\nassigned and completed stages" as StatusStages
+  usecase "Confirm job completion" as ConfirmCompletion
+
+  usecase "Communicate about a job" as Communicate
+  usecase "View conversations\nand message history" as ViewMessages
+  usecase "Send and receive messages" as ExchangeMessages
+  usecase "Mark received messages\nas read" as MarkRead
+
+  usecase "Receive real-time job,\nbid and message updates" as ReceiveUpdates
+}
+
+Customer -- TrackJob
+Worker -- TrackJob
+Customer -- ConfirmCompletion
+Customer -- Communicate
+Worker -- Communicate
+
+TrackJob ..> ViewHistory : <<include>>
+TrackJob ..> StatusStages : <<include>>
+ConfirmCompletion ..> TrackJob : <<extend>>
+
+Communicate ..> ViewMessages : <<include>>
+Communicate ..> ExchangeMessages : <<include>>
+ViewMessages ..> MarkRead : <<include>>
+ExchangeMessages -- Realtime
+
+ReceiveUpdates -- Customer
+ReceiveUpdates -- Worker
+ReceiveUpdates -- Realtime
+
+note right of ConfirmCompletion
+Only the customer who owns an active
+job can confirm it as completed.
+The completion update is delivered
+to the customer and assigned worker.
+end note
+
+note bottom of StatusStages
+An accepted bid assigns a worker and
+moves the job to active. The customer
+can then mark it completed. Open is
+the posted, bid-accepting stage.
+end note
+
+note bottom of ReceiveUpdates
+Job status, bid decisions, and new
+messages are distributed in real time
+through authenticated Socket.IO user rooms.
+end note
+
+@enduml

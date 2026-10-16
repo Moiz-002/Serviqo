@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import NotificationCenter from '@/components/ui/NotificationCenter';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/customer/dashboard' },
@@ -91,10 +92,7 @@ export default function CustomerLayout({ children }) {
               </a>
             </div>
             
-            <button className="p-2 text-neutral-500 hover:bg-neutral-100 rounded-full relative transition-colors">
-              <Bell className="w-6 h-6" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationCenter role="customer" />
             
             <div className="h-8 w-[1px] bg-neutral-200 mx-1 hidden sm:block"></div>
             

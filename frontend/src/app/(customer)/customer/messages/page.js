@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import * as api from '@/lib/api';
+import { getRealtimeSocket } from '@/lib/realtime';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function MessagesPage() {
   const [conversations, setConversations] = useState([]);
@@ -25,24 +27,55 @@ export default function MessagesPage() {
   const [showMobileList, setShowMobileMobileList] = useState(true);
   const [myUserId, setMyUserId] = useState(null);
   const messagesEndRef = useRef(null);
+  const { push: showToast } = useToast();
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
     api.getMe().then((data) => setMyUserId((data.user || data)._id)).catch(() => {});
     api.getConversations()
       .then((data) => {
         const convs = data.conversations || [];
         setConversations(convs);
-        if (convs.length > 0) setActiveConv(convs[0]);
+        if (searchParams.get('conversation')) {
+          const requested = convs.find((conversation) => conversation._id === searchParams.get('conversation'));
+          if (requested) setActiveConv(requested);
+        } else if (convs.length > 0) setActiveConv(convs[0]);
+        if (searchParams.get('participantId')) {
+          api.getOrCreateConversation({
+            participantId: searchParams.get('participantId'),
+            jobId: searchParams.get('jobId') || undefined,
+          }).then(({ conversation }) => {
+            setConversations((current) => [
+              conversation,
+              ...current.filter((item) => item._id !== conversation._id),
+            ]);
+            setActiveConv(conversation);
+          }).catch((err) => showToast(err.message || 'Unable to start conversation.', 'error'));
+        }
       })
-      .catch(() => {});
-  }, []);
+      .catch((err) => showToast(err.message || 'Unable to load conversations.', 'error'));
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!activeConv) return;
+    const socket = getRealtimeSocket();
+    socket.emit('conversation:join', activeConv._id);
+    const onMessage = ({ conversationId, message: incoming }) => {
+      if (String(conversationId) !== String(activeConv._id)) return;
+      setMessages((current) => (
+        current.some((item) => item._id === incoming._id) ? current : [...current, incoming]
+      ));
+    };
+    socket.on('message:created', onMessage);
+    return () => socket.off('message:created', onMessage);
+  }, [activeConv]);
 
   useEffect(() => {
     if (!activeConv) return;
     api.getMessages(activeConv._id)
       .then((data) => setMessages(data.messages || []))
-      .catch(() => {});
-  }, [activeConv]);
+      .catch((err) => showToast(err.message || 'Unable to load messages.', 'error'));
+  }, [activeConv, showToast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,9 +86,12 @@ export default function MessagesPage() {
     const text = message.trim();
     setMessage('');
     try {
-      const data = await api.sendMessage(activeConv._id, { content: text });
-      setMessages((prev) => [...prev, data.message || { _id: Date.now(), sender: { _id: myUserId }, content: text, createdAt: new Date() }]);
-    } catch {}
+      const data = await api.sendMessage(activeConv._id, { text });
+      setMessages((prev) => [...prev, data.message || { _id: Date.now(), sender: { _id: myUserId }, text, createdAt: new Date() }]);
+    } catch (err) {
+      setMessage(text);
+      showToast(err.message || 'Unable to send message.', 'error');
+    }
   };
 
   const getOtherParticipant = (conv) => {
@@ -121,7 +157,7 @@ export default function MessagesPage() {
                   </div>
                   <p className="text-xs text-text-secondary font-medium mb-1 uppercase tracking-widest">{other.serviceCategory || other.role || ''}</p>
                   <p className="text-xs truncate font-medium text-text-tertiary">
-                    {lastMsg?.content || 'No messages yet'}
+                    {lastMsg?.text || lastMsg?.content || (typeof lastMsg === 'string' ? lastMsg : 'No messages yet')}
                   </p>
                 </div>
               </button>
@@ -200,7 +236,7 @@ export default function MessagesPage() {
                     ? 'bg-primary text-white rounded-tr-none'
                     : 'bg-white border border-neutral-100 text-text-primary rounded-tl-none'}
                 `}>
-                  <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                  <p className="text-sm font-medium leading-relaxed">{msg.text || msg.content}</p>
                   <div className={`flex items-center gap-1 mt-2 ${isMe ? 'justify-end text-primary-light' : 'justify-start text-text-tertiary'}`}>
                     <span className="text-[9px] font-bold uppercase">
                       {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}

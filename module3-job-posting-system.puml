@@ -1,0 +1,89 @@
+@startuml
+title Serviqo - Module 3: Job Posting System
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor Customer
+actor Worker
+actor Administrator as Admin
+actor "Image Storage Service" as ImageStorage
+actor "Realtime Notification Service" as Realtime
+
+rectangle "Serviqo Job Posting System" {
+  usecase "Post a job" as PostJob
+  usecase "Enter job details,\ncategory, budget and urgency" as EnterDetails
+  usecase "Specify city and area" as SpecifyLocation
+  usecase "Upload job images\n(optional, up to five)" as UploadImages
+
+  usecase "Manage own jobs" as ManageJobs
+  usecase "View own jobs and\njob status" as ViewOwnJobs
+  usecase "Edit an open job" as EditJob
+  usecase "Delete an open job" as DeleteJob
+  usecase "Mark an active job\nas completed" as CompleteJob
+
+  usecase "Browse open jobs" as BrowseJobs
+  usecase "Search/filter jobs by\ncategory, city or title" as FilterJobs
+  usecase "View job details" as ViewJob
+  usecase "Notify customer and\nassigned worker of completion" as NotifyCompletion
+
+  usecase "Monitor platform jobs" as MonitorJobs
+  usecase "View all jobs and\nfilter by status/category" as ViewAllJobs
+}
+
+Customer -- PostJob
+Customer -- ManageJobs
+Customer -- ViewJob
+Worker -- BrowseJobs
+Worker -- ViewJob
+Admin -- MonitorJobs
+
+PostJob ..> EnterDetails : <<include>>
+PostJob ..> SpecifyLocation : <<include>>
+PostJob ..> UploadImages : <<include>>
+UploadImages -- ImageStorage
+
+ManageJobs ..> ViewOwnJobs : <<include>>
+EditJob ..> ManageJobs : <<extend>>
+DeleteJob ..> ManageJobs : <<extend>>
+CompleteJob ..> ManageJobs : <<extend>>
+CompleteJob ..> NotifyCompletion : <<include>>
+NotifyCompletion -- Realtime
+
+BrowseJobs ..> FilterJobs : <<include>>
+ViewJob ..> BrowseJobs : <<extend>>
+MonitorJobs ..> ViewAllJobs : <<include>>
+
+note right of EditJob
+Only the customer who owns the job
+can edit it, and only while its
+status is open.
+end note
+
+note right of DeleteJob
+Only the customer who owns the job
+can delete it, and only while its
+status is open.
+end note
+
+note bottom of BrowseJobs
+Workers browse open jobs. Job listings
+support category, city and title search,
+with paginated results.
+end note
+
+note bottom of CompleteJob
+Only the owning customer can mark
+an active job as completed.
+end note
+
+note right of Admin
+Admin job access is monitoring-only:
+the implemented admin API lists and
+filters jobs. It does not allow admins
+to create, edit, delete or complete jobs.
+end note
+
+@enduml

@@ -16,6 +16,7 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import * as api from '@/lib/api';
+import { getRealtimeSocket } from '@/lib/realtime';
 
 const StatCard = ({ icon: Icon, label, value, colorClass }) => (
   <Card className="p-6 border-neutral-200/60 shadow-sm hover:shadow-md transition-shadow">
@@ -46,6 +47,23 @@ export default function CustomerDashboard() {
         completed: all.filter((j) => j.status === 'completed').length,
       });
     }).catch(() => {});
+    const socket = getRealtimeSocket();
+    const onBidCreated = ({ jobId, totalBids }) => {
+      setJobs((current) => current.map((job) => (
+        String(job._id) === String(jobId) ? { ...job, totalBids } : job
+      )));
+    };
+    const onJobStatus = ({ jobId, status }) => {
+      setJobs((current) => current.map((job) => (
+        String(job._id) === String(jobId) ? { ...job, status } : job
+      )));
+    };
+    socket.on('bid:created', onBidCreated);
+    socket.on('job:status', onJobStatus);
+    return () => {
+      socket.off('bid:created', onBidCreated);
+      socket.off('job:status', onJobStatus);
+    };
   }, []);
 
   const firstName = user?.name?.split(' ')[0] || 'there';
@@ -123,7 +141,7 @@ export default function CustomerDashboard() {
                         </span>
                         <span className="text-xs text-neutral-300">•</span>
                         <span className="text-xs font-black uppercase text-accent tracking-widest">
-                          {job.bids?.length || job.proposalsCount || 0} Bids received
+                          {job.totalBids || 0} Bids received
                         </span>
                       </div>
                     </div>

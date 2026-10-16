@@ -1,4 +1,6 @@
 const Job = require('../models/Job');
+const Review = require('../models/Review');
+const { emitToUsers } = require('../services/realtime');
 
 function validateJobInput({ title, description, category, budgetRange, urgency, city, area }) {
   const required = { title, description, category, budgetRange, urgency, city, area };
@@ -73,7 +75,8 @@ async function getJobById(req, res) {
   const job = await Job.findById(req.params.jobId)
     .populate('customer', 'name profilePicture city phone')
     .populate('assignedWorker', 'name profilePicture rating completedJobs')
-    .populate('acceptedBid');
+    .populate('acceptedBid')
+    .lean();
 
   if (!job) return res.status(404).json({ error: 'Job not found' });
   const userId = String(req.user._id);
@@ -81,6 +84,11 @@ async function getJobById(req, res) {
   const isAssignedWorker = job.assignedWorker && String(job.assignedWorker._id || job.assignedWorker) === userId;
   if (req.user.role !== 'admin' && !isOwner && !isAssignedWorker && !(req.user.role === 'worker' && job.status === 'open')) {
     return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (job.status === 'completed') {
+    job.review = await Review.findOne({ job: job._id, customer: job.customer._id || job.customer })
+      .populate('worker', 'name profilePicture')
+      .lean();
   }
 
   return res.json({ job });
@@ -159,6 +167,11 @@ async function markJobComplete(req, res) {
 
   job.status = 'completed';
   await job.save();
+  emitToUsers([job.customer, job.assignedWorker], 'job:status', {
+    jobId: String(job._id),
+    status: job.status,
+    job,
+  });
 
   return res.json({ message: 'Job marked as completed', job });
 }

@@ -16,10 +16,13 @@ import {
   AlertCircle,
   ChevronRight,
   Trash2,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as api from '@/lib/api';
+import { getRealtimeSocket } from '@/lib/realtime';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const STATUS_CONFIG = {
   open: { label: 'Open for Bids', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -28,7 +31,7 @@ const STATUS_CONFIG = {
   cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-700 border-red-200' },
 };
 
-function BidCard({ bid, jobStatus, acceptedBidId, onAccept, onReject, isActing }) {
+function BidCard({ bid, jobId, jobStatus, acceptedBidId, onAccept, onReject, isActing }) {
   const isAccepted = acceptedBidId && bid._id === acceptedBidId;
   const isRejected = bid.status === 'rejected';
   const isPending = bid.status === 'pending';
@@ -109,7 +112,7 @@ function BidCard({ bid, jobStatus, acceptedBidId, onAccept, onReject, isActing }
                 Decline
               </button>
               <Link
-                href={`/customer/messages`}
+                href={`/customer/messages?participantId=${encodeURIComponent(bid.worker?._id || '')}&jobId=${encodeURIComponent(jobId)}`}
                 className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border border-neutral-200 text-neutral-600 rounded-xl text-sm font-bold hover:bg-neutral-100 transition-all"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -121,7 +124,7 @@ function BidCard({ bid, jobStatus, acceptedBidId, onAccept, onReject, isActing }
           {isAccepted && (
             <div className="flex gap-3 mt-4 pt-4 border-t border-emerald-100">
               <Link
-                href={`/customer/messages`}
+                href={`/customer/messages?participantId=${encodeURIComponent(bid.worker?._id || '')}&jobId=${encodeURIComponent(jobId)}`}
                 className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -145,6 +148,11 @@ export default function JobDetailPage({ params }) {
   const [isActing, setIsActing] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [isManaging, setIsManaging] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const { push: showToast } = useToast();
 
   useEffect(() => {
     const load = async () => {
@@ -162,6 +170,27 @@ export default function JobDetailPage({ params }) {
       }
     };
     load();
+  }, [id]);
+
+  useEffect(() => {
+    const socket = getRealtimeSocket();
+    socket.emit('job:join', id);
+    const onBidCreated = ({ jobId, bid: incomingBid, totalBids }) => {
+      if (String(jobId) !== String(id)) return;
+      setBids((current) => (
+        current.some((bid) => bid._id === incomingBid._id) ? current : [incomingBid, ...current]
+      ));
+      setJob((current) => current ? { ...current, totalBids } : current);
+    };
+    const onJobStatus = ({ jobId, status }) => {
+      if (String(jobId) === String(id)) setJob((current) => current ? { ...current, status } : current);
+    };
+    socket.on('bid:created', onBidCreated);
+    socket.on('job:status', onJobStatus);
+    return () => {
+      socket.off('bid:created', onBidCreated);
+      socket.off('job:status', onJobStatus);
+    };
   }, [id]);
 
   const handleAccept = async (bidId) => {
@@ -221,6 +250,33 @@ export default function JobDetailPage({ params }) {
       setActionMessage(err.message || 'Failed to complete the job.');
     } finally {
       setIsManaging(false);
+    }
+  };
+
+  const handleReviewSubmit = async (event) => {
+    event.preventDefault();
+    if (!reviewRating) {
+      showToast('Please choose a rating from 1 to 5 stars.', 'error');
+      return;
+    }
+    if (reviewComment.trim().length > 2000) {
+      showToast('Your review must be 2,000 characters or fewer.', 'error');
+      return;
+    }
+    setIsReviewing(true);
+    try {
+      const data = await api.postReview({
+        jobId: id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      setJob((current) => current ? { ...current, review: data.review } : current);
+      setReviewSubmitted(true);
+      showToast('Thank you. Your rating and review were saved.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to save your review.', 'error');
+    } finally {
+      setIsReviewing(false);
     }
   };
 
@@ -299,6 +355,74 @@ export default function JobDetailPage({ params }) {
           </div>
 
           <p className="mt-4 text-neutral-600 leading-relaxed">{job.description}</p>
+
+          {job.status === 'completed' && job.assignedWorker && !reviewSubmitted && (
+            <form onSubmit={handleReviewSubmit} className="mt-8 rounded-2xl border border-primary/15 bg-primary-subtle/40 p-5 md:p-6">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-black text-text-primary">How was your experience?</h2>
+                <p className="text-sm font-medium text-text-secondary">
+                  Rate {job.assignedWorker.name || 'your professional'} and share feedback to help the Serviqo community.
+                </p>
+              </div>
+              <fieldset className="mt-5">
+                <legend className="text-sm font-bold text-text-primary">Your rating</legend>
+                <div className="mt-2 flex items-center gap-1" role="radiogroup" aria-label="Worker rating">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      type="button"
+                      role="radio"
+                      aria-checked={reviewRating === rating}
+                      aria-label={`${rating} star${rating === 1 ? '' : 's'}`}
+                      onClick={() => setReviewRating(rating)}
+                      className="rounded-lg p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-primary/15"
+                    >
+                      <Star className={`h-8 w-8 ${rating <= reviewRating ? 'fill-warning text-warning' : 'text-neutral-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <label htmlFor="job-review" className="mt-5 block text-sm font-bold text-text-primary">
+                Review <span className="font-medium text-text-tertiary">(optional)</span>
+              </label>
+              <textarea
+                id="job-review"
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                maxLength={2000}
+                rows={4}
+                placeholder="Tell the worker what went well..."
+                className="mt-2 w-full resize-y rounded-xl border border-border bg-white px-4 py-3 text-sm font-medium text-text-primary outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+              />
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <span className="text-xs font-medium text-text-tertiary">{reviewComment.length}/2000</span>
+                <button
+                  type="submit"
+                  disabled={isReviewing || !reviewRating}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                  {isReviewing ? 'Saving...' : 'Submit Review'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {job.status === 'completed' && (reviewSubmitted || job.review) && (
+            <div className="mt-8 rounded-2xl border border-success/20 bg-success-light p-5">
+              <h2 className="text-lg font-black text-text-primary">Review submitted</h2>
+              <div className="mt-2 flex items-center gap-1" aria-label={`${job.review?.rating || reviewRating} out of 5 stars`}>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <Star key={rating} className={`h-5 w-5 ${rating <= (job.review?.rating || reviewRating) ? 'fill-warning text-warning' : 'text-neutral-300'}`} />
+                ))}
+              </div>
+              {(job.review?.comment || reviewComment) && (
+                <p className="mt-2 text-sm font-medium italic text-text-secondary">
+                  &quot;{job.review?.comment || reviewComment}&quot;
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-neutral-100">
             <div className="flex items-center gap-2 text-sm text-neutral-600">
@@ -384,6 +508,7 @@ export default function JobDetailPage({ params }) {
                 <BidCard
                   key={bid._id}
                   bid={bid}
+                  jobId={id}
                   jobStatus={job.status}
                   acceptedBidId={acceptedBidId}
                   onAccept={handleAccept}
