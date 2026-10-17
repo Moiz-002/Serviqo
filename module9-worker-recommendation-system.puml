@@ -1,5 +1,5 @@
 @startuml
-title Serviqo - Module 9: Worker Recommendation System (Proposed)
+title Serviqo - Module 9: Worker Recommendation System (Implemented)
 
 left to right direction
 skinparam packageStyle rectangle
@@ -7,57 +7,74 @@ skinparam shadowing false
 skinparam actorStyle awesome
 
 actor Customer
-actor "Serviqo Web or Mobile Client" as Client
-actor "Recruiter AI Agent" as RecruiterAI
-actor "Serviqo Central Backend" as Backend
+actor "Serviqo Web/Mobile Client" as Client
+actor "Serviqo Express Backend" as Backend
+actor "Python Recommendation Service" as RecommendationService
+actor "Google Gemini API" as Gemini
+database "Serviqo MongoDB" as Database
 
-rectangle "Serviqo Worker Recommendation System (Not Implemented)" {
-  usecase "Request worker\nrecommendations" as RequestRecommendations
-  usecase "Analyze service-request\nrequirements" as AnalyzeRequirements
-  usecase "Retrieve relevant\nworker profile information" as RetrieveProfiles
-  usecase "Match workers to\nservice requirements" as MatchWorkers
-  usecase "Rank suitable workers" as RankWorkers
-  usecase "Present recommended\nworkers to customer" as PresentRecommendations
-  usecase "Provide recommendation\nfeedback" as ProvideFeedback
-  usecase "Use feedback and interaction\ndata to improve recommendations" as ImproveRecommendations
+rectangle "Module 9: Worker Recommendation System" {
+  usecase "Request recommendations\nfor owned open job" as RequestRecommendations
+  usecase "Analyze service\nrequirements" as AnalyzeRequirements
+  usecase "Retrieve eligible\nworker candidates" as RetrieveCandidates
+  usecase "Semantically match\nskills and category" as MatchWorkers
+  usecase "Rank candidates using\nexplainable features" as RankWorkers
+  usecase "Present ranked workers\nand match reasons" as PresentRecommendations
+  usecase "View recommended\nworker profile" as ViewWorkerProfile
+  usecase "Start a job-related\nconversation with a Worker" as ContactWorker
+  usecase "Submit helpful /\nnot-helpful feedback" as SubmitFeedback
+  usecase "Use category-specific feedback\nin future ranking" as ImproveRanking
 }
 
 Customer -- RequestRecommendations
-Customer -- ProvideFeedback
+Customer -- SubmitFeedback
+Customer -- ViewWorkerProfile
+Customer -- ContactWorker
 Client -- RequestRecommendations
 Client -- PresentRecommendations
-Client -- ProvideFeedback
+Client -- ViewWorkerProfile
+Client -- ContactWorker
+Client -- SubmitFeedback
 
 RequestRecommendations ..> AnalyzeRequirements : <<include>>
-RequestRecommendations ..> RetrieveProfiles : <<include>>
+RequestRecommendations ..> RetrieveCandidates : <<include>>
 RequestRecommendations ..> MatchWorkers : <<include>>
 MatchWorkers ..> RankWorkers : <<include>>
 RequestRecommendations ..> PresentRecommendations : <<include>>
-ProvideFeedback ..> ImproveRecommendations : <<include>>
+ViewWorkerProfile ..> PresentRecommendations : <<extend>>
+ContactWorker ..> PresentRecommendations : <<extend>>
+SubmitFeedback ..> ImproveRanking : <<include>>
 
-AnalyzeRequirements -- RecruiterAI
-MatchWorkers -- RecruiterAI
-RankWorkers -- RecruiterAI
-ImproveRecommendations -- RecruiterAI
-RetrieveProfiles -- Backend
-ImproveRecommendations -- Backend
+RequestRecommendations -- Backend
+SubmitFeedback -- Backend
+ContactWorker -- Backend
+RetrieveCandidates -- Database
+ImproveRanking -- Database
+AnalyzeRequirements -- RecommendationService
+MatchWorkers -- RecommendationService
+RankWorkers -- RecommendationService
+RecommendationService -- Gemini
 
 note right of RankWorkers
-Planned ranking attributes include
-skills, experience, location,
-ratings, and availability.
+The deterministic score combines
+service category, skill similarity,
+location, experience, rating confidence,
+and smoothed customer feedback.
 end note
 
-note bottom of ImproveRecommendations
-Feedback and interaction data must be
-relevant to recommendations and handled
-under applicable privacy and access rules.
+note bottom of RecommendationService
+Gemini extracts job skill signals and
+provides embeddings for category/skill
+phrases. It cannot access MongoDB or
+override backend eligibility rules.
 end note
 
 note bottom of RequestRecommendations
-This is a proposed AI-assisted feature.
-No worker-recommendation AI agent or
-recommendation endpoint is implemented yet.
+Recommendations require an authenticated
+Customer who owns an open job. Only active,
+verified Workers who are eligible to bid
+are considered. The Customer explicitly
+requests AI processing in the job page.
 end note
 
 @enduml

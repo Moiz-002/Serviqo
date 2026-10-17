@@ -139,6 +139,11 @@ export const uploadCnic = (formData) => request('/worker/cnic', { method: 'POST'
 export const createJob = (formData) => request('/jobs', { method: 'POST', body: formData, retryTransient: true });
 export const getJobs = () => request('/jobs');
 export const getJobById = (id) => request(`/jobs/${id}`);
+export const getJobRecommendations = (jobId) => request(`/jobs/${jobId}/recommendations`);
+export const submitRecommendationFeedback = (jobId, body) => request(`/jobs/${jobId}/recommendations/feedback`, {
+  method: 'PUT',
+  body: JSON.stringify(body),
+});
 export const updateJob = (id, body) => request(`/jobs/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 export const deleteJob = (id) => request(`/jobs/${id}`, { method: 'DELETE' });
 export const completeJob = (id) => request(`/jobs/${id}/complete`, { method: 'PATCH' });

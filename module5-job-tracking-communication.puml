@@ -19,6 +19,9 @@ rectangle "Serviqo Job Tracking & Communication" {
   usecase "Communicate about a job" as Communicate
   usecase "View conversations\nand message history" as ViewMessages
   usecase "Send and receive messages" as ExchangeMessages
+  usecase "View unread-message counts" as ViewUnreadCounts
+  usecase "View sent, delivered, and\nread message indicators" as MessageReceipts
+  usecase "See when the other participant\nis typing" as TypingIndicator
   usecase "Mark received messages\nas read" as MarkRead
 
   usecase "Receive real-time job,\nbid and message updates" as ReceiveUpdates
@@ -37,7 +40,12 @@ ConfirmCompletion ..> TrackJob : <<extend>>
 Communicate ..> ViewMessages : <<include>>
 Communicate ..> ExchangeMessages : <<include>>
 ViewMessages ..> MarkRead : <<include>>
+ViewMessages ..> ViewUnreadCounts : <<include>>
+ExchangeMessages ..> MessageReceipts : <<include>>
+ExchangeMessages ..> TypingIndicator : <<include>>
 ExchangeMessages -- Realtime
+MessageReceipts -- Realtime
+TypingIndicator -- Realtime
 
 ReceiveUpdates -- Customer
 ReceiveUpdates -- Worker

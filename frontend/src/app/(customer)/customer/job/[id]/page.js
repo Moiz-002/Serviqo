@@ -17,6 +17,10 @@ import {
   ChevronRight,
   Trash2,
   Send,
+  Sparkles,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -152,7 +156,16 @@ export default function JobDetailPage({ params }) {
   const [reviewComment, setReviewComment] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [recommendationData, setRecommendationData] = useState(null);
+  const [recommendationStatus, setRecommendationStatus] = useState('idle');
+  const [recommendationError, setRecommendationError] = useState('');
+  const [recommendationRetry, setRecommendationRetry] = useState(0);
+  const [recommendationConsentJobId, setRecommendationConsentJobId] = useState('');
+  const [feedbackSavingWorker, setFeedbackSavingWorker] = useState('');
+  const [submittedRecommendationFeedback, setSubmittedRecommendationFeedback] = useState({});
   const { push: showToast } = useToast();
+  const recommendationJobStatus = job?.status;
+  const recommendationViewStatus = recommendationConsentJobId === id ? recommendationStatus : 'idle';
 
   useEffect(() => {
     const load = async () => {
@@ -171,6 +184,25 @@ export default function JobDetailPage({ params }) {
     };
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (recommendationJobStatus !== 'open' || recommendationConsentJobId !== id) return undefined;
+    let isCurrent = true;
+    api.getJobRecommendations(id)
+      .then((data) => {
+        if (!isCurrent) return;
+        setRecommendationData(data);
+        setRecommendationStatus('ready');
+      })
+      .catch((err) => {
+        if (!isCurrent) return;
+        setRecommendationError(err.message || 'Could not load recommendations.');
+        setRecommendationStatus('error');
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [id, recommendationJobStatus, recommendationConsentJobId, recommendationRetry]);
 
   useEffect(() => {
     const socket = getRealtimeSocket();
@@ -223,6 +255,19 @@ export default function JobDetailPage({ params }) {
       setActionMessage(err.message || 'Failed to decline bid.');
     } finally {
       setIsActing(false);
+    }
+  };
+
+  const handleRecommendationFeedback = async (workerId, helpful) => {
+    setFeedbackSavingWorker(workerId);
+    try {
+      await api.submitRecommendationFeedback(id, { workerId, helpful });
+      setSubmittedRecommendationFeedback((current) => ({ ...current, [workerId]: helpful }));
+      showToast('Thanks. Your recommendation feedback was saved.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to save recommendation feedback.', 'error');
+    } finally {
+      setFeedbackSavingWorker('');
     }
   };
 
@@ -450,6 +495,189 @@ export default function JobDetailPage({ params }) {
           )}
         </div>
       </div>
+
+      {job.status === 'open' && (
+        <section className="overflow-hidden rounded-2xl border border-primary-100 bg-white shadow-sm" aria-labelledby="worker-recommendations-heading">
+          <div className="flex flex-col gap-3 border-b border-primary-50 bg-gradient-to-r from-primary-50/80 to-white p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary-100 p-2.5 text-primary-700">
+                <Sparkles className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="worker-recommendations-heading" className="text-lg font-black text-neutral-900">
+                  Recommended professionals
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600">
+                  AI-assisted matches ranked using this request and verified worker profiles. Match scores show relative fit, not a probability or guarantee.
+                </p>
+              </div>
+            </div>
+            {recommendationViewStatus === 'ready' && recommendationData?.analysisMode === 'gemini_hybrid' && (
+              <span className="w-fit rounded-full border border-primary-100 bg-white px-3 py-1 text-xs font-bold text-primary-700">
+                Gemini + profile matching
+              </span>
+            )}
+          </div>
+
+          {recommendationViewStatus === 'loading' && (
+            <div className="flex items-center gap-3 p-6 text-sm font-medium text-neutral-600" role="status">
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+              Finding workers whose skills fit your request...
+            </div>
+          )}
+
+          {recommendationViewStatus === 'idle' && (
+            <div className="p-6">
+              <p className="max-w-3xl text-sm leading-relaxed text-neutral-600">
+                To find matches, Serviqo sends this job’s category and description plus de-identified Worker service and skill terms to Google Gemini. Common email, phone, and CNIC patterns are removed first; names, contact details, account IDs, ratings, and identity documents are not sent. Please do not include sensitive personal information in your job description.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setRecommendationData(null);
+                  setRecommendationError('');
+                  setRecommendationStatus('loading');
+                  setRecommendationConsentJobId(id);
+                }}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl !bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                Find recommended workers
+              </button>
+            </div>
+          )}
+
+          {recommendationViewStatus === 'error' && (
+            <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between" role="alert">
+              <p className="text-sm text-neutral-600">{recommendationError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setRecommendationError('');
+                  setRecommendationStatus('loading');
+                  setRecommendationRetry((attempt) => attempt + 1);
+                }}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Try again
+              </button>
+            </div>
+          )}
+
+          {recommendationViewStatus === 'ready' && (
+            recommendationData?.recommendations?.length ? (
+              <div className="divide-y divide-neutral-100">
+                {recommendationData.recommendations.map(({ worker, score, reasons, feedback }) => {
+                  const workerId = String(worker._id);
+                  const submittedFeedback = submittedRecommendationFeedback[workerId];
+                  return (
+                    <article key={workerId} className="p-5 sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                        <img
+                          src={worker.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name || 'W')}&background=1E3A8A&color=fff`}
+                          alt=""
+                          className="h-14 w-14 rounded-full border border-neutral-200 object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <Link href={`/workers/${workerId}`} className="font-bold text-neutral-900 hover:text-primary-700 hover:underline">
+                                {worker.name}
+                              </Link>
+                              <p className="mt-1 text-sm text-neutral-500">
+                                {[worker.serviceCategory, worker.city].filter(Boolean).join(' · ')}
+                              </p>
+                            </div>
+                            <div className="min-w-28 text-left sm:text-right">
+                              <span className="text-lg font-black text-primary-700">{Math.round(score)}%</span>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Match score</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100" aria-label={`Match score ${Math.round(score)} percent`}>
+                            <div className="h-full rounded-full bg-primary-500" style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-neutral-600">
+                            <span className="inline-flex items-center gap-1">
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                              {Number(worker.rating || 0).toFixed(1)} ({worker.totalReviews || 0} reviews)
+                            </span>
+                            <span>{worker.experience || 0} years’ experience</span>
+                            <span>{worker.completedJobs || 0} completed jobs</span>
+                            {worker.hourlyRate > 0 && <span>{worker.hourlyRate.toLocaleString()} PKR/hour</span>}
+                          </div>
+
+                          {Array.isArray(worker.skills) && worker.skills.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {worker.skills.slice(0, 5).map((skill) => (
+                                <span key={skill} className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {Array.isArray(reasons) && reasons.length > 0 && (
+                            <ul className="mt-3 space-y-1 text-sm text-neutral-600">
+                              {reasons.map((reason) => <li key={reason}>• {reason}</li>)}
+                            </ul>
+                          )}
+
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/workers/${workerId}`}
+                              className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-primary-700"
+                            >
+                              View profile
+                            </Link>
+                            <Link
+                              href={`/customer/messages?participantId=${encodeURIComponent(workerId)}&jobId=${encodeURIComponent(id)}`}
+                              className="inline-flex items-center gap-2 rounded-xl border border-primary-200 px-4 py-2 text-sm font-bold text-primary-700 transition hover:bg-primary-50"
+                            >
+                              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                              Message worker
+                            </Link>
+                            <span className="ml-1 text-xs text-neutral-500">Was this recommendation useful?</span>
+                            <button
+                              type="button"
+                              aria-label={`Mark ${worker.name}'s recommendation helpful`}
+                              aria-pressed={submittedFeedback === true}
+                              disabled={feedbackSavingWorker === workerId}
+                              onClick={() => handleRecommendationFeedback(workerId, true)}
+                              className={`rounded-lg p-2 transition disabled:opacity-50 ${submittedFeedback === true ? 'bg-emerald-50 text-emerald-700' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                            >
+                              <ThumbsUp className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Mark ${worker.name}'s recommendation not helpful`}
+                              aria-pressed={submittedFeedback === false}
+                              disabled={feedbackSavingWorker === workerId}
+                              onClick={() => handleRecommendationFeedback(workerId, false)}
+                              className={`rounded-lg p-2 transition disabled:opacity-50 ${submittedFeedback === false ? 'bg-red-50 text-red-700' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                            >
+                              <ThumbsDown className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <span className="text-[11px] text-neutral-400">
+                              {feedback?.helpful || 0} helpful · {feedback?.notHelpful || 0} not helpful
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-6 text-sm text-neutral-600">
+                No verified workers are available to recommend for this request yet. You can still review proposals as they arrive.
+              </div>
+            )
+          )}
+        </section>
+      )}
 
       {/* Action message */}
       {actionMessage && (

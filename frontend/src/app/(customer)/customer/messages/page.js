@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   Paperclip,
   Smile,
+  Check,
   CheckCheck,
   User,
   ChevronLeft
@@ -26,7 +27,11 @@ export default function MessagesPage() {
   const [message, setMessage] = useState('');
   const [showMobileList, setShowMobileMobileList] = useState(true);
   const [myUserId, setMyUserId] = useState(null);
+  const [typingState, setTypingState] = useState(null);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const typingResetRef = useRef(null);
+  const typingConversationRef = useRef(null);
   const { push: showToast } = useToast();
 
   useEffect(() => {
@@ -61,19 +66,87 @@ export default function MessagesPage() {
     const socket = getRealtimeSocket();
     socket.emit('conversation:join', activeConv._id);
     const onMessage = ({ conversationId, message: incoming }) => {
+      setConversations((current) => current.map((conversation) => (
+        String(conversation._id) === String(conversationId)
+          ? {
+            ...conversation,
+            lastMessage: incoming.text,
+            lastMessageAt: incoming.createdAt || new Date().toISOString(),
+            unreadCount: String(conversationId) === String(activeConv._id)
+              ? 0
+              : (conversation.unreadCount || 0) + 1,
+          }
+          : conversation
+      )));
       if (String(conversationId) !== String(activeConv._id)) return;
       setMessages((current) => (
         current.some((item) => item._id === incoming._id) ? current : [...current, incoming]
       ));
+      socket.emit('message:delivered', {
+        conversationId,
+        messageIds: [incoming._id],
+      });
+      api.getMessages(activeConv._id)
+        .then((data) => setMessages(data.messages || []))
+        .catch((err) => showToast(err.message || 'Unable to update read status.', 'error'));
+    };
+    const onMessageSent = ({ conversationId, message: outgoing }) => {
+      if (String(conversationId) !== String(activeConv._id)) return;
+      setMessages((current) => (
+        current.some((item) => item._id === outgoing._id) ? current : [...current, outgoing]
+      ));
+    };
+    const onMessageStatus = ({ conversationId, messageIds, status }) => {
+      if (String(conversationId) !== String(activeConv._id) || !Array.isArray(messageIds)) return;
+      const ids = new Set(messageIds.map(String));
+      setMessages((current) => current.map((item) => (
+        ids.has(String(item._id))
+          ? { ...item, deliveryStatus: status, isRead: status === 'read' || item.isRead }
+          : item
+      )));
+    };
+    const onTyping = ({ conversationId, userId, role, isTyping }) => {
+      if (String(conversationId) !== String(activeConv._id) || String(userId) === String(myUserId)) return;
+      if (typingResetRef.current) clearTimeout(typingResetRef.current);
+      if (!isTyping) {
+        setTypingState(null);
+        return;
+      }
+      setTypingState({
+        conversationId: String(conversationId),
+        role: role === 'customer' ? 'Customer' : 'Worker',
+      });
+      typingResetRef.current = setTimeout(() => setTypingState(null), 2500);
     };
     socket.on('message:created', onMessage);
-    return () => socket.off('message:created', onMessage);
-  }, [activeConv]);
+    socket.on('message:sent', onMessageSent);
+    socket.on('message:status', onMessageStatus);
+    socket.on('conversation:typing', onTyping);
+    return () => {
+      if (typingConversationRef.current === String(activeConv._id)) {
+        socket.emit('conversation:typing', { conversationId: activeConv._id, isTyping: false });
+        typingConversationRef.current = null;
+      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      socket.emit('conversation:leave', activeConv._id);
+      socket.off('message:created', onMessage);
+      socket.off('message:sent', onMessageSent);
+      socket.off('message:status', onMessageStatus);
+      socket.off('conversation:typing', onTyping);
+    };
+  }, [activeConv, myUserId, showToast]);
 
   useEffect(() => {
     if (!activeConv) return;
     api.getMessages(activeConv._id)
-      .then((data) => setMessages(data.messages || []))
+      .then((data) => {
+        setMessages(data.messages || []);
+        setConversations((current) => current.map((conversation) => (
+          String(conversation._id) === String(activeConv._id)
+            ? { ...conversation, unreadCount: 0 }
+            : conversation
+        )));
+      })
       .catch((err) => showToast(err.message || 'Unable to load messages.', 'error'));
   }, [activeConv, showToast]);
 
@@ -85,18 +158,54 @@ export default function MessagesPage() {
     if (!message.trim() || !activeConv) return;
     const text = message.trim();
     setMessage('');
+    const socket = getRealtimeSocket();
+    socket.emit('conversation:typing', { conversationId: activeConv._id, isTyping: false });
+    typingConversationRef.current = null;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     try {
       const data = await api.sendMessage(activeConv._id, { text });
-      setMessages((prev) => [...prev, data.message || { _id: Date.now(), sender: { _id: myUserId }, text, createdAt: new Date() }]);
+      const outgoing = data.message || { _id: Date.now(), sender: { _id: myUserId }, text, createdAt: new Date(), deliveryStatus: 'sent' };
+      setMessages((prev) => prev.some((item) => item._id === outgoing._id) ? prev : [...prev, outgoing]);
+      setConversations((current) => current.map((conversation) => (
+        String(conversation._id) === String(activeConv._id)
+          ? { ...conversation, lastMessage: text, lastMessageAt: outgoing.createdAt }
+          : conversation
+      )));
     } catch (err) {
       setMessage(text);
       showToast(err.message || 'Unable to send message.', 'error');
     }
   };
 
+  const handleMessageChange = (event) => {
+    const nextMessage = event.target.value;
+    setMessage(nextMessage);
+    if (!activeConv) return;
+    const socket = getRealtimeSocket();
+    const conversationId = String(activeConv._id);
+    if (nextMessage.trim() && typingConversationRef.current !== conversationId) {
+      typingConversationRef.current = conversationId;
+      socket.emit('conversation:typing', { conversationId, isTyping: true });
+    } else if (!nextMessage.trim() && typingConversationRef.current === conversationId) {
+      typingConversationRef.current = null;
+      socket.emit('conversation:typing', { conversationId, isTyping: false });
+    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (nextMessage.trim()) {
+      typingTimeoutRef.current = setTimeout(() => {
+        if (typingConversationRef.current !== conversationId) return;
+        typingConversationRef.current = null;
+        socket.emit('conversation:typing', { conversationId, isTyping: false });
+      }, 1500);
+    }
+  };
+
   const getOtherParticipant = (conv) => {
     return conv.participants?.find((p) => p._id !== myUserId) || conv.participants?.[0] || {};
   };
+  const typingRole = typingState?.conversationId === String(activeConv?._id)
+    ? typingState.role
+    : '';
 
   return (
     <div className="h-[calc(100vh-140px)] min-h-[600px] flex gap-6 animate-in fade-in duration-500">
@@ -160,6 +269,11 @@ export default function MessagesPage() {
                     {lastMsg?.text || lastMsg?.content || (typeof lastMsg === 'string' ? lastMsg : 'No messages yet')}
                   </p>
                 </div>
+                {conv.unreadCount > 0 && (
+                  <span className="self-center flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-black text-white" aria-label={`${conv.unreadCount} unread messages`}>
+                    {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -195,8 +309,8 @@ export default function MessagesPage() {
                   </div>
                   <div>
                     <h3 className="font-black text-text-primary leading-tight">{other.name || 'Unknown'}</h3>
-                    <p className="text-[10px] text-text-tertiary font-black uppercase tracking-widest mt-0.5">
-                      {other.serviceCategory || other.role || 'User'}
+                    <p className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${typingRole ? 'text-primary-600' : 'text-text-tertiary'}`} aria-live="polite">
+                      {typingRole ? `${typingRole} is typing…` : (other.serviceCategory || other.role || 'User')}
                     </p>
                   </div>
                 </>
@@ -241,7 +355,12 @@ export default function MessagesPage() {
                     <span className="text-[9px] font-bold uppercase">
                       {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
-                    {isMe && <CheckCheck className="w-3 h-3" />}
+                    {isMe && (msg.deliveryStatus === 'read' || msg.isRead
+                      ? <CheckCheck className="w-4 h-4 text-emerald-300" aria-label="Read" />
+                      : msg.deliveryStatus === 'delivered'
+                        ? <CheckCheck className="w-4 h-4 text-primary-light" aria-label="Delivered" />
+                        : <Check className="w-3 h-3" aria-label="Sent" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -262,7 +381,7 @@ export default function MessagesPage() {
               <input
                 type="text"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={handleMessageChange}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 placeholder="Type your message..."
                 className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-text-primary placeholder:text-text-tertiary"

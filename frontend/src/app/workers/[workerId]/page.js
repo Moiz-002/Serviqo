@@ -1,5 +1,4 @@
 'use client';
-import Image from 'next/image';
 import {
   MapPin,
   Star,
@@ -117,7 +116,7 @@ const mockWorker = {
   },
 };
 
-const ReviewBars = () => {
+const ReviewBars = ({ ratingDistribution = mockWorker.ratingDistribution }) => {
   'use client';
   return (
     <div className="space-y-2">
@@ -128,12 +127,12 @@ const ReviewBars = () => {
             <div
               className="h-full bg-accent transition-all duration-700 ease-out"
               style={{
-                width: `${worker.ratingDistribution[stars]}%`,
+                width: `${ratingDistribution[stars]}%`,
               }}
             />
           </div>
           <span className="text-xs text-text-tertiary w-8">
-            {worker.ratingDistribution[stars]}%
+            {ratingDistribution[stars]}%
           </span>
         </div>
       ))}
@@ -159,11 +158,10 @@ const PortfolioLightbox = ({ images, initialIndex = 0 }) => {
             }}
             className="relative aspect-square rounded-2xl overflow-hidden group cursor-pointer"
           >
-            <Image
+            <img
               src={image.url}
               alt={image.caption || `Portfolio ${index + 1}`}
-              fill
-              className="object-cover group-hover:scale-110 transition-transform duration-300"
+              className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-300"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
           </button>
@@ -187,11 +185,10 @@ const PortfolioLightbox = ({ images, initialIndex = 0 }) => {
           aria-label="Portfolio image viewer"
         >
           <div className="relative max-w-3xl max-h-screen w-full h-full flex items-center justify-center">
-            <Image
+            <img
               src={images[currentIndex].url}
               alt={images[currentIndex].caption || `Portfolio ${currentIndex + 1}`}
-              fill
-              className="object-contain"
+              className="h-full w-full object-contain"
             />
 
             {/* Caption */}
@@ -242,47 +239,55 @@ const PortfolioLightbox = ({ images, initialIndex = 0 }) => {
   );
 };
 
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import * as api from '@/lib/api';
+import Link from 'next/link';
 
 export default function WorkerProfilePage({ params }) {
-  const workerId = params.workerId;
-  const [worker, setWorker] = useState(mockWorker);
+  const { workerId } = use(params);
+  const [worker, setWorker] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     api.getWorkerPublicProfile(workerId)
       .then((data) => {
-        const w = data.worker || data;
+        const w = data.worker;
+        const reviews = data.reviews || [];
+        const availableDays = Object.entries(w.availability || {}).filter(([, value]) => value?.available);
+        const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const reviewDistribution = Object.fromEntries([1, 2, 3, 4, 5].map((rating) => [
+          rating,
+          reviews.length ? Math.round((reviews.filter((review) => review.rating === rating).length / reviews.length) * 100) : 0,
+        ]));
         setWorker({
-          ...mockWorker,
           id: w._id,
-          name: w.name || worker.name,
-          firstName: (w.name || '').split(' ')[0] || worker.firstName,
-          role: w.serviceCategory ? `${w.serviceCategory} Professional` : worker.role,
-          city: [w.area, w.city].filter(Boolean).join(', ') || worker.city,
-          avatar: w.profilePicture || worker.avatar,
-          bio: w.bio || worker.bio,
-          rating: w.rating || worker.rating,
-          reviewCount: w.reviewCount || worker.reviewCount,
-          jobsCompleted: w.completedJobs || worker.jobsCompleted,
-          experience: w.experience ? `${w.experience} yrs exp.` : worker.experience,
-          responseTime: w.responseTime ? `~${w.responseTime} response` : worker.responseTime,
-          hourlyRate: w.hourlyRate || worker.hourlyRate,
-          category: w.serviceCategory || worker.category,
-          skills: w.skills?.length ? w.skills : worker.skills,
-          portfolio: w.portfolioItems?.length
-            ? w.portfolioItems.map((p) => ({ url: p.image, caption: p.caption }))
-            : worker.portfolio,
-          workingDays: w.availability
-            ? Object.entries(w.availability).filter(([, v]) => v?.available).map(([k]) => k.slice(0, 3).charAt(0).toUpperCase() + k.slice(1, 3))
-            : worker.workingDays,
-          workingHours: (() => {
-            const days = w.availability ? Object.values(w.availability).filter((v) => v?.available) : [];
-            return days.length ? `${days[0].from} – ${days[0].to}` : worker.workingHours;
-          })(),
-          responseTimeText: w.responseTime ? `Typically responds within ${w.responseTime}` : worker.responseTimeText,
-          reviews: w.reviews?.length ? w.reviews.map((r) => ({
+          name: w.name || 'Serviqo Worker',
+          firstName: (w.name || '').split(' ')[0] || 'Worker',
+          role: w.serviceCategory ? `${w.serviceCategory} Professional` : 'Service Professional',
+          city: w.city || 'Location not provided',
+          avatar: w.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(w.name || 'Worker')}&background=1E3A8A&color=fff`,
+          bio: w.bio || 'This professional has not added a biography yet.',
+          rating: Number(w.rating || 0),
+          reviewCount: Number(w.totalReviews || 0),
+          jobsCompleted: Number(w.completedJobs || 0),
+          experience: `${Number(w.experience || 0)} yrs exp.`,
+          responseTime: w.responseTime ? `~${w.responseTime} response` : 'Response time not provided',
+          hourlyRate: Number(w.hourlyRate || 0),
+          category: w.serviceCategory || 'Service Professional',
+          skills: w.skills || [],
+          certifications: [],
+          portfolio: (w.portfolio || []).filter((item) => item.image).map((item) => ({
+            url: item.image,
+            caption: item.title || item.description || 'Portfolio item',
+          })),
+          workingDays: availableDays.map(([day]) => day.slice(0, 3).charAt(0).toUpperCase() + day.slice(1, 3)),
+          workingHours: availableDays.length
+            ? `${availableDays[0][1].from} – ${availableDays[0][1].to}`
+            : 'Availability not provided',
+          available: Boolean(w.availability?.[today]?.available),
+          responseTimeText: w.responseTime ? `Typically responds within ${w.responseTime}` : 'Response time not provided',
+          reviews: reviews.map((r) => ({
             id: r._id,
             author: r.customer?.name || 'Anonymous',
             role: 'Customer',
@@ -291,10 +296,11 @@ export default function WorkerProfilePage({ params }) {
             date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '',
             text: r.comment || '',
             helpful: 0, unhelpful: 0,
-          })) : worker.reviews,
+          })),
+          ratingDistribution: reviewDistribution,
         });
       })
-      .catch(() => {})
+      .catch((error) => setProfileError(error.message || 'Unable to load this Worker profile.'))
       .finally(() => setIsLoading(false));
   }, [workerId]);
 
@@ -331,6 +337,19 @@ export default function WorkerProfilePage({ params }) {
     return stars;
   };
 
+  if (isLoading) {
+    return <div className="mx-auto max-w-5xl px-4 py-20 text-center text-text-secondary">Loading Worker profile…</div>;
+  }
+
+  if (!worker) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-20 text-center">
+        <h1 className="text-xl font-bold text-text-primary">Worker profile unavailable</h1>
+        <p className="mt-2 text-sm text-text-secondary">{profileError || 'This Worker profile could not be found.'}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-5xl mx-auto px-4">
@@ -339,11 +358,10 @@ export default function WorkerProfilePage({ params }) {
           <div className="grid md:grid-cols-[auto_1fr] gap-6 items-start">
             {/* Avatar */}
             <div className="relative w-24 md:w-32 h-24 md:h-32 flex-shrink-0">
-              <Image
+              <img
                 src={worker.avatar}
                 alt={worker.name}
-                fill
-                className="rounded-full object-cover border-4 border-accent"
+                className="h-full w-full rounded-full object-cover border-4 border-accent"
               />
               <div className="absolute bottom-0 right-0 w-6 h-6 md:w-7 md:h-7 bg-accent rounded-full border-2 border-surface flex items-center justify-center">
                 <Shield className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" strokeWidth={2} />
@@ -410,10 +428,13 @@ export default function WorkerProfilePage({ params }) {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-2 mt-6 md:col-span-2">
-              <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-medium hover:bg-primary-hover transition-colors">
-                Request a Quote
-                <ArrowRight className="w-4 h-4" strokeWidth={2} />
-              </button>
+              <Link
+                href={`/customer/messages?participantId=${encodeURIComponent(worker.id)}`}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-medium hover:bg-primary-hover transition-colors"
+              >
+                Message Worker
+                <MessageSquare className="w-4 h-4" strokeWidth={2} />
+              </Link>
               <button className="px-4 py-3 border border-border text-text-primary rounded-full hover:bg-surface transition-colors">
                 <Bookmark className="w-4 h-4" strokeWidth={2} />
               </button>
@@ -557,13 +578,13 @@ export default function WorkerProfilePage({ params }) {
                   </div>
                 </div>
                 <p className="text-sm text-text-secondary">
-                  Based on {worker.reviewCount} reviews
+                  Based on {worker.reviews.length} recent reviews
                 </p>
               </div>
 
               {/* Rating Bars */}
               <div className="flex-1">
-                <ReviewBars />
+                <ReviewBars ratingDistribution={worker.ratingDistribution} />
               </div>
             </div>
           </div>
@@ -577,11 +598,9 @@ export default function WorkerProfilePage({ params }) {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Image
+                    <img
                       src={review.avatar}
                       alt={review.author}
-                      width={40}
-                      height={40}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
@@ -620,5 +639,3 @@ export default function WorkerProfilePage({ params }) {
     </div>
   );
 }
-
-import { ArrowRight } from 'lucide-react';

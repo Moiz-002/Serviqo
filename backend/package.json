@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon --ignore auth_info_baileys/ app.js",
+    "ai:dev": "ai_service\\.venv\\Scripts\\python.exe -m uvicorn app.recommendations:app --app-dir ai_service --host 127.0.0.1 --port 8001 --reload",
     "test": "node --test test"
   },
   "dependencies": {

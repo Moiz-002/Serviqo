@@ -74,6 +74,12 @@ export default function NotificationCenter({ role }) {
     const socket = getRealtimeSocket();
     const handlers = ['message:created', 'bid:created', 'bid:decision', 'job:status', 'notification:created'].map((event) => {
       const handler = (payload) => {
+        if (event === 'message:created' && payload.conversationId && payload.message?._id) {
+          socket.emit('message:delivered', {
+            conversationId: payload.conversationId,
+            messageIds: [payload.message._id],
+          });
+        }
         if (event === 'notification:created') {
           setNotifications((current) => [
             { ...payload, id: payload._id || `${Date.now()}-${Math.random()}`, text: payload.message, href: payload.href || `/${role}/dashboard`, icon: payload.title?.includes('approved') ? CheckCircle2 : payload.title?.includes('needs changes') ? XCircle : Info, tone: payload.title?.includes('approved') ? 'text-success' : payload.title?.includes('needs changes') ? 'text-error' : 'text-primary' },

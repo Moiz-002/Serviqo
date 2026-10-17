@@ -30,7 +30,7 @@ async function getWorkerPublicProfile(req, res) {
   const worker = await User.findOne({
     _id: req.params.workerId,
     role: 'worker',
-  }).select('-password -otp -otpExpiry -cnicFront -cnicBack -email -phone');
+  }).select('name profilePicture city role serviceCategory skills bio experience hourlyRate portfolio availability responseTime rating totalReviews completedJobs');
 
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
