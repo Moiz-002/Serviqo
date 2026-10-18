@@ -23,4 +23,20 @@ async function createNotification(recipient, values) {
   return notification;
 }
 
-module.exports = { configureRealtime, emitToUser, emitToUsers, createNotification };
+async function notifySafely(recipient, values) {
+  if (!recipient) return null;
+  try {
+    return await createNotification(recipient, values);
+  } catch (error) {
+    console.error('Unable to create notification:', error.message);
+    return null;
+  }
+}
+
+module.exports = {
+  configureRealtime,
+  emitToUser,
+  emitToUsers,
+  createNotification,
+  notifySafely,
+};

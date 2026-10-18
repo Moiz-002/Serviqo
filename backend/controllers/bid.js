@@ -1,7 +1,8 @@
 const Bid = require('../models/Bid');
 const Job = require('../models/Job');
 const User = require('../models/User');
-const { emitToUser, emitToUsers } = require('../services/realtime');
+const mongoose = require('mongoose');
+const { emitToUser, emitToUsers, notifySafely } = require('../services/realtime');
 
 function validateBidInput({ amount, proposal, estimatedDays }) {
   const numericAmount = Number(amount);
@@ -63,6 +64,12 @@ async function submitBid(req, res) {
     bid,
     totalBids: (job.totalBids || 0) + 1,
   });
+  await notifySafely(job.customer, {
+    type: 'bid_received',
+    title: 'New bid received',
+    message: `A worker submitted a proposal for "${job.title}".`,
+    href: `/customer/job/${jobId}`,
+  });
 
   return res.status(201).json({ message: 'Bid submitted successfully', bid });
 }
@@ -103,19 +110,62 @@ async function acceptBid(req, res) {
     return res.status(400).json({ error: 'Only pending bids can be accepted' });
   }
 
-  bid.status = 'accepted';
-  await bid.save();
-
-  await Job.findByIdAndUpdate(bid.job._id, {
-    status: 'active',
-    assignedWorker: bid.worker,
-    acceptedBid: bid._id,
-  });
-
-  await Bid.updateMany(
-    { job: bid.job._id, _id: { $ne: bid._id } },
-    { status: 'rejected' }
+  const transactionSupported = ['ReplicaSetWithPrimary', 'Sharded'].includes(
+    mongoose.connection.client?.topology?.description?.type
   );
+  let notSelected;
+
+  if (transactionSupported) {
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // This guarded transition permits only one bid to claim an open job.
+        const assignedJob = await Job.findOneAndUpdate(
+          { _id: bid.job._id, customer: req.user._id, status: 'open' },
+          { $set: { status: 'active', assignedWorker: bid.worker, acceptedBid: bid._id } },
+          { new: true, session }
+        );
+        if (!assignedJob) throw new Error('JOB_NOT_OPEN_FOR_BID_ACCEPTANCE');
+
+        bid.status = 'accepted';
+        await bid.save({ session });
+        notSelected = await Bid.find({ job: bid.job._id, _id: { $ne: bid._id } })
+          .select('worker')
+          .session(session);
+        await Bid.updateMany(
+          { job: bid.job._id, _id: { $ne: bid._id } },
+          { $set: { status: 'rejected' } },
+          { session }
+        );
+      });
+    } catch (error) {
+      if (error.message === 'JOB_NOT_OPEN_FOR_BID_ACCEPTANCE') {
+        return res.status(400).json({ error: 'Job is not open for bid acceptance' });
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+  } else {
+    // The atomic job guard prevents reassignment when transactions are unavailable.
+    const assignedJob = await Job.findOneAndUpdate(
+      { _id: bid.job._id, customer: req.user._id, status: 'open' },
+      { $set: { status: 'active', assignedWorker: bid.worker, acceptedBid: bid._id } },
+      { new: true }
+    );
+    if (!assignedJob) {
+      return res.status(400).json({ error: 'Job is not open for bid acceptance' });
+    }
+
+    bid.status = 'accepted';
+    await bid.save();
+    notSelected = await Bid.find({ job: bid.job._id, _id: { $ne: bid._id } }).select('worker');
+    await Bid.updateMany(
+      { job: bid.job._id, _id: { $ne: bid._id } },
+      { $set: { status: 'rejected' } }
+    );
+  }
+
   emitToUsers([bid.job.customer, bid.worker], 'bid:decision', {
     bidId: String(bid._id),
     jobId: String(bid.job._id),
@@ -126,6 +176,18 @@ async function acceptBid(req, res) {
     status: 'active',
     assignedWorker: String(bid.worker),
   });
+  await notifySafely(bid.worker, {
+    type: 'bid_accepted',
+    title: 'Your bid was accepted',
+    message: `Your proposal for "${bid.job.title}" was accepted.`,
+    href: `/worker/job/${bid.job._id}`,
+  });
+  await Promise.all(notSelected.map((otherBid) => notifySafely(otherBid.worker, {
+    type: 'bid_not_selected',
+    title: 'Bid not selected',
+    message: `Another proposal was selected for "${bid.job.title}".`,
+    href: `/worker/job/${bid.job._id}`,
+  })));
 
   return res.json({ message: 'Bid accepted', bid });
 }

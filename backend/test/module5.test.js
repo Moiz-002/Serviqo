@@ -148,3 +148,35 @@ test('customer can start a job-scoped conversation with a verified recommended w
   assert.equal(created.job, jobId);
   assert.equal(res.statusCode, 200);
 });
+
+test('customer can message the worker assigned to their job after its status changes', async (t) => {
+  const customerId = '66d6a2e5e5d00a507b2b7f21';
+  const workerId = '66d6a2e5e5d00a507b2b7f23';
+  const jobId = '66d6a2e5e5d00a507b2b7f24';
+  t.mock.method(User, 'findById', () => ({
+    select: async () => ({ _id: workerId, role: 'worker', isActive: true }),
+  }));
+  t.mock.method(Job, 'findById', () => ({
+    select: async () => ({
+      customer: customerId,
+      assignedWorker: workerId,
+      status: 'completed',
+    }),
+  }));
+  t.mock.method(Conversation, 'findOne', async () => null);
+  let created;
+  t.mock.method(Conversation, 'create', async (data) => {
+    created = data;
+    return { ...data, populate: async () => {} };
+  });
+
+  const res = response();
+  await messageController.getOrCreateConversation({
+    body: { participantId: workerId, jobId },
+    user: { _id: customerId, role: 'customer' },
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(created.participants, [customerId, workerId]);
+  assert.equal(created.job, jobId);
+});

@@ -1,6 +1,6 @@
 const Job = require('../models/Job');
 const Review = require('../models/Review');
-const { emitToUsers } = require('../services/realtime');
+const { emitToUsers, notifySafely } = require('../services/realtime');
 
 function validateJobInput({ title, description, category, budgetRange, urgency, city, area }) {
   const required = { title, description, category, budgetRange, urgency, city, area };
@@ -165,15 +165,28 @@ async function markJobComplete(req, res) {
     return res.status(400).json({ error: 'Only active jobs can be marked complete' });
   }
 
-  job.status = 'completed';
-  await job.save();
+  // Guard the transition atomically so concurrent completion requests cannot both succeed.
+  const completedJob = await Job.findOneAndUpdate(
+    { _id: req.params.jobId, customer: req.user._id, status: 'active' },
+    { $set: { status: 'completed' } },
+    { new: true }
+  );
+  if (!completedJob) {
+    return res.status(400).json({ error: 'Only active jobs can be marked complete' });
+  }
   emitToUsers([job.customer, job.assignedWorker], 'job:status', {
     jobId: String(job._id),
-    status: job.status,
-    job,
+    status: completedJob.status,
+    job: completedJob,
+  });
+  await notifySafely(job.assignedWorker, {
+    type: 'job_completed',
+    title: 'Job completed',
+    message: `The customer marked "${job.title}" as completed.`,
+    href: `/worker/job/${job._id}`,
   });
 
-  return res.json({ message: 'Job marked as completed', job });
+  return res.json({ message: 'Job marked as completed', job: completedJob });
 }
 
 module.exports = { createJob, getJobs, getJobById, updateJob, deleteJob, markJobComplete };

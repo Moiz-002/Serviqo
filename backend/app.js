@@ -21,12 +21,26 @@ const { startWhatsAppOtp } = require('./services/whatsapp');
 const configureSocketServer = require('./services/socket');
 
 const app = express();
+const defaultAllowedOrigins = [
+  process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
+  'https://serviqo-three.vercel.app',
+];
+const configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOriginValues = configuredAllowedOrigins.length
+  ? configuredAllowedOrigins
+  : defaultAllowedOrigins;
+const allowedOrigins = [...new Set(
+  allowedOriginValues.map((origin) => origin.trim()).filter(Boolean)
+)];
 
 app.use(cors({
-  origin: [process.env.FRONTEND_ORIGIN || 'http://localhost:3000', 'https://serviqo-three.vercel.app'],
+  origin: allowedOrigins,
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -60,7 +74,7 @@ async function startServer() {
 
   const PORT = process.env.PORT || 5000;
   const server = http.createServer(app);
-  configureSocketServer(server, [process.env.FRONTEND_ORIGIN || 'http://localhost:3000', 'https://serviqo-three.vercel.app']);
+  configureSocketServer(server, allowedOrigins);
   return server.listen(PORT, () => {
     console.log(`Serviqo backend running on port ${PORT}`);
   });

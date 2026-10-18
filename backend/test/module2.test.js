@@ -36,7 +36,7 @@ test('protected API middleware rejects requests without a session', () => {
   assert.equal(called, false);
 });
 
-test('protected API middleware accepts a valid bearer token', () => {
+test('protected API middleware accepts a valid bearer token', async (t) => {
   const res = response();
   let called = false;
   const token = createToken({
@@ -44,7 +44,15 @@ test('protected API middleware accepts a valid bearer token', () => {
     phone: '03001234567',
     role: 'worker',
   });
-  checkAuth(
+  t.mock.method(User, 'findById', () => ({
+    select: async () => ({
+      _id: '507f1f77bcf86cd799439011',
+      phone: '03001234567',
+      role: 'worker',
+      isActive: true,
+    }),
+  }));
+  await checkAuth(
     { cookies: {}, get: (header) => header === 'authorization' ? `Bearer ${token}` : undefined },
     res,
     () => { called = true; },

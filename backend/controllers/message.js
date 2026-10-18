@@ -56,6 +56,8 @@ async function getOrCreateConversation(req, res) {
     if (!job) return res.status(404).json({ error: 'Job not found' });
     const isCustomerOwner = req.user.role === 'customer'
       && String(job.customer) === String(req.user._id);
+    const isOwnersAssignedWorker = isCustomerOwner
+      && String(job.assignedWorker) === String(participantId);
     const isAssignedWorker = req.user.role === 'worker'
       && String(job.assignedWorker) === String(req.user._id)
       && String(otherParticipant._id) === String(job.customer);
@@ -64,7 +66,7 @@ async function getOrCreateConversation(req, res) {
       && otherParticipant.role === 'worker'
       && otherParticipant.isVerified
       && otherParticipant.cnicVerified;
-    if (!isAssignedWorker && !isEligibleRecommendedWorker) {
+    if (!isAssignedWorker && !isOwnersAssignedWorker && !isEligibleRecommendedWorker) {
       return res.status(403).json({ error: 'You cannot start a conversation for this job' });
     }
   }

@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const { verifyToken } = require('./auth');
+const { resolveSessionUser, SessionUserError } = require('../middlewares/auth');
 const Job = require('../models/Job');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
@@ -25,11 +26,14 @@ function configureSocketServer(httpServer, corsOrigin) {
     },
   });
 
-  io.use((socket, next) => {
-    const user = verifyToken(getHandshakeToken(socket));
-    if (!user) return next(new Error('Unauthorized'));
-    socket.user = user;
-    return next();
+  io.use(async (socket, next) => {
+    try {
+      socket.user = await resolveSessionUser(verifyToken(getHandshakeToken(socket)));
+      return next();
+    } catch (error) {
+      if (error instanceof SessionUserError) return next(new Error('Unauthorized'));
+      return next(error);
+    }
   });
 
   io.on('connection', (socket) => {
