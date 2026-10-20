@@ -23,8 +23,8 @@ EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 MAX_CANDIDATES = 100
 MAX_EMBEDDING_CACHE_ITEMS = 2_000
 _embedding_cache: OrderedDict[str, list[float]] = OrderedDict()
-RECOMMENDATION_TIMEOUT_SECONDS = 12
-GEMINI_REQUEST_TIMEOUT_MS = 8_000
+RECOMMENDATION_TIMEOUT_SECONDS = 40
+GEMINI_REQUEST_TIMEOUT_MS = 30_000
 
 EMAIL_PATTERN = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)")

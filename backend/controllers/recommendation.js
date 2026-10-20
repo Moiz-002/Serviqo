@@ -8,7 +8,7 @@ const { notifySafely } = require('../services/realtime');
 
 const MAX_CANDIDATES = 100;
 const RECOMMENDATION_LIMIT = 10;
-const RECOMMENDATION_TIMEOUT_MS = 20_000;
+const RECOMMENDATION_TIMEOUT_MS = 45_000;
 const GENERIC_WORDS = new Set([
   'a', 'an', 'and', 'are', 'at', 'for', 'in', 'is', 'of', 'on', 'or', 'the', 'to', 'with',
   'installation', 'repair', 'service', 'cleaning', 'maintenance',
