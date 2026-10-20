@@ -1,0 +1,48 @@
+name: Deploy backend to EC2
+
+on:
+  push:
+    branches: [Moiz-002]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.EC2_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      # Untracked files on the server (.env, auth_info_baileys/, new uploads) are left in place.
+      - name: Pull, install and reload
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -se' <<'EOF'
+          cd ~/serviqo
+          git fetch --quiet origin Moiz-002
+          git reset --hard origin/Moiz-002
+          cd backend
+          npm ci --omit=dev --no-audit --no-fund
+          pm2 reload serviqo-api --update-env
+          pm2 save
+          git log -1 --format='Deployed %h: %s'
+          EOF
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://api.15-252-199-200.sslip.io/api/jobs || true)
+            if [ "$code" = "401" ]; then echo "API is up"; exit 0; fi
+            sleep 3
+          done
+          echo "API did not come back (last status: $code)"; exit 1
