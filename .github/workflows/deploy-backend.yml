@@ -33,7 +33,9 @@ jobs:
           git reset --hard origin/Moiz-002
           cd backend
           npm ci --omit=dev --no-audit --no-fund
+          ~/.local/bin/uv pip install -q --python ai_service/.venv/bin/python -r ai_service/requirements.txt
           pm2 reload serviqo-api --update-env
+          pm2 reload serviqo-ai --update-env
           pm2 save
           git log -1 --format='Deployed %h: %s'
           EOF
