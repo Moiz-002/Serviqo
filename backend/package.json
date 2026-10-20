@@ -5,9 +5,12 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon --ignore auth_info_baileys/ app.js",
+    "dev": "nodemon --ignore auth_info_baileys/ --ignore dataset/ app.js",
     "ai:dev": "ai_service\\.venv\\Scripts\\python.exe -m uvicorn app.recommendations:app --app-dir ai_service --host 127.0.0.1 --port 8001 --reload",
-    "test": "node --test test"
+    "test": "node --test test",
+    "seed:demo": "node scripts/seed-synthetic.js",
+    "seed:reset": "node scripts/seed-synthetic.js --reset",
+    "seed:replace": "node scripts/seed-synthetic.js --reset --data dataset/output/mongo"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc14",
@@ -17,6 +20,7 @@
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^5.1.0",
+    "firebase-admin": "^13.10.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.1",
     "multer": "^1.4.5-lts.1",

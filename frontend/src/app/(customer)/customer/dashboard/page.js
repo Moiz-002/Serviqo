@@ -17,6 +17,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import * as api from '@/lib/api';
 import { getRealtimeSocket } from '@/lib/realtime';
+import { DashboardSkeleton, InlineLoadError } from '@/components/ui/LoadingStates';
 
 const StatCard = ({ icon: Icon, label, value, colorClass }) => (
   <Card className="p-6 border-neutral-200/60 shadow-sm hover:shadow-md transition-shadow">
@@ -36,17 +37,29 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({ active: 0, completed: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    api.getMe().then((data) => setUser(data.user || data)).catch(() => {});
-    api.getJobs().then((data) => {
-      const all = data.jobs || [];
-      setJobs(all);
-      setStats({
-        active: all.filter((j) => j.status === 'active').length,
-        completed: all.filter((j) => j.status === 'completed').length,
-      });
-    }).catch(() => {});
+    let cancelled = false;
+    Promise.allSettled([api.getMe(), api.getJobs()]).then(([userResult, jobsResult]) => {
+      if (cancelled) return;
+      if (userResult.status === 'fulfilled') setUser(userResult.value.user || userResult.value);
+      if (jobsResult.status === 'fulfilled') {
+        const all = jobsResult.value.jobs || [];
+        setJobs(all);
+        setStats({
+          active: all.filter((j) => j.status === 'active').length,
+          completed: all.filter((j) => j.status === 'completed').length,
+        });
+      }
+      const failures = [
+        userResult.status === 'rejected' && 'profile',
+        jobsResult.status === 'rejected' && 'jobs',
+      ].filter(Boolean);
+      if (failures.length) setLoadError(`Some dashboard data could not be loaded (${failures.join(', ')}).`);
+      setIsLoading(false);
+    });
     const socket = getRealtimeSocket();
     const onBidCreated = ({ jobId, totalBids }) => {
       setJobs((current) => current.map((job) => (
@@ -61,15 +74,21 @@ export default function CustomerDashboard() {
     socket.on('bid:created', onBidCreated);
     socket.on('job:status', onJobStatus);
     return () => {
+      cancelled = true;
       socket.off('bid:created', onBidCreated);
       socket.off('job:status', onJobStatus);
     };
   }, []);
 
+  if (isLoading) return <DashboardSkeleton />;
+
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>

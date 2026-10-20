@@ -4,24 +4,36 @@ import React, { useState, useEffect } from 'react';
 import { ImageIcon, Plus, Trash2, Pencil, GripVertical, CheckCircle2, Upload, X } from 'lucide-react';
 import FileUpload from '@/components/ui/FileUpload';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function WorkerPortfolioPage() {
   const [portfolioItems, setPortfolioItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [caption, setCaption] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
 
   useEffect(() => {
+    let cancelled = false;
     api.getMe().then((data) => {
+      if (cancelled) return;
       const u = data.user || data;
       setPortfolioItems((u.portfolio || []).map((item) => ({
         id: item._id,
         preview: item.image,
         caption: item.title || item.caption || '',
       })));
-    }).catch(() => {});
+    }).catch((error) => {
+      if (!cancelled) setLoadError(error.message || 'Unable to load your portfolio.');
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading portfolio" rows={3} />;
 
   const handleRemove = async (id) => {
     try {
@@ -57,6 +69,9 @@ export default function WorkerPortfolioPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} className="mb-6" />
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Work Portfolio</h1>
@@ -64,7 +79,7 @@ export default function WorkerPortfolioPage() {
         </div>
         <button 
           onClick={() => setShowUploadModal(true)}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
+          className="flex items-center gap-2 px-6 py-2.5 !bg-primary text-white rounded-xl font-semibold hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-all"
         >
           <Plus className="w-5 h-5" />
           Add New Project

@@ -14,20 +14,40 @@ import {
 } from 'lucide-react';
 import { DUMMY_ANALYTICS } from '@/config/admin-constants';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getAdminAnalytics()
-      .then((data) => setAnalytics(data.analytics || data))
-      .catch(() => {});
+      .then((data) => { if (!cancelled) setAnalytics(data.analytics || data); })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load analytics.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading platform analytics" rows={4} />;
+  if (!analytics && loadError) {
+    return (
+      <div className="mx-auto max-w-7xl">
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      </div>
+    );
+  }
 
   const stats = analytics || DUMMY_ANALYTICS;
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

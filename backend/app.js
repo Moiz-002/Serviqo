@@ -19,6 +19,7 @@ const disputeRouter = require('./routes/dispute');
 const notificationRouter = require('./routes/notification');
 const { startWhatsAppOtp } = require('./services/whatsapp');
 const configureSocketServer = require('./services/socket');
+const { initializePush } = require('./services/push');
 
 const app = express();
 const defaultAllowedOrigins = [
@@ -65,6 +66,7 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
+  initializePush();
   await connectDatabase(process.env.MONGODB_URI);
   console.log('MongoDB connected');
 

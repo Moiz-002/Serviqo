@@ -4,6 +4,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const { emitToUser, emitToUsers } = require('../services/realtime');
+const { pushSafely } = require('../services/push');
 
 async function getConversations(req, res) {
   const conversations = await Conversation.find({ participants: req.user._id })
@@ -127,10 +128,14 @@ async function getMessages(req, res) {
 }
 
 async function sendMessage(req, res) {
-  const text = typeof req.body.text === 'string' ? req.body.text : req.body.content;
-  if (!text?.trim()) return res.status(400).json({ error: 'Message text is required' });
+  const rawText = typeof req.body.text === 'string' ? req.body.text : req.body.content;
+  const text = typeof rawText === 'string' ? rawText.trim() : '';
+  const imageUrl = req.file?.path;
+  if (!text && !imageUrl) {
+    return res.status(400).json({ error: 'Message text is required' });
+  }
 
-  const conversation = await Conversation.findOne({
+  const conversation = req.conversation || await Conversation.findOne({
     _id: req.params.conversationId,
     participants: req.user._id,
   });
@@ -140,10 +145,11 @@ async function sendMessage(req, res) {
   const message = await Message.create({
     conversation: req.params.conversationId,
     sender: req.user._id,
-    text: text.trim(),
+    text,
+    ...(imageUrl && { imageUrl }),
   });
 
-  conversation.lastMessage = text.trim();
+  conversation.lastMessage = text || 'Image attachment';
   conversation.lastMessageAt = new Date();
   await conversation.save();
 
@@ -157,6 +163,17 @@ async function sendMessage(req, res) {
     'message:created',
     { conversationId: String(conversation._id), message },
   );
+  const recipients = conversation.participants
+    .filter((participant) => String(participant) !== String(req.user._id));
+  pushSafely(recipients, {
+    title: req.user.name || 'New message',
+    body: text.slice(0, 140),
+    data: {
+      type: 'message',
+      conversationId: String(conversation._id),
+      jobId: conversation.job ? String(conversation.job) : '',
+    },
+  });
 
   return res.status(201).json({ message });
 }

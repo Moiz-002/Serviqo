@@ -140,6 +140,10 @@ export const createJob = (formData) => request('/jobs', { method: 'POST', body: 
 export const getJobs = () => request('/jobs');
 export const getJobById = (id) => request(`/jobs/${id}`);
 export const getJobRecommendations = (jobId) => request(`/jobs/${jobId}/recommendations`);
+export const inviteRecommendedWorker = (jobId, body) => request(`/jobs/${jobId}/recommendations/invite`, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
 export const submitRecommendationFeedback = (jobId, body) => request(`/jobs/${jobId}/recommendations/feedback`, {
   method: 'PUT',
   body: JSON.stringify(body),
@@ -159,7 +163,10 @@ export const rejectBid = (bidId) => request(`/bids/${bidId}/reject`, { method: '
 export const getConversations = () => request('/messages/conversations');
 export const getOrCreateConversation = (body) => request('/messages/conversations', { method: 'POST', body: JSON.stringify(body) });
 export const getMessages = (conversationId) => request(`/messages/conversations/${conversationId}`);
-export const sendMessage = (conversationId, body) => request(`/messages/conversations/${conversationId}`, { method: 'POST', body: JSON.stringify(body) });
+export const sendMessage = (conversationId, body) => request(`/messages/conversations/${conversationId}`, {
+  method: 'POST',
+  body: body instanceof FormData ? body : JSON.stringify(body),
+});
 
 export { SOCKET_BASE };
 
@@ -173,6 +180,8 @@ export const createDispute = (body) => request('/disputes', { method: 'POST', bo
 export const getMyDisputes = () => request('/disputes/mine');
 export const getNotifications = () => request('/notifications');
 export const markNotificationsRead = () => request('/notifications/read', { method: 'PUT' });
+export const markNotificationRead = (notificationId) => request(`/notifications/${notificationId}/read`, { method: 'PUT' });
+export const deleteNotification = (notificationId) => request(`/notifications/${notificationId}`, { method: 'DELETE' });
 
 // Admin
 export const getAdminAnalytics = () => request('/admin/analytics');

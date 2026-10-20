@@ -32,6 +32,7 @@ const menuItems = [
   { icon: Calendar, label: 'Availability', href: '/worker/availability' },
   { icon: Star, label: 'Reviews', href: '/worker/reviews' },
   { icon: MessageSquare, label: 'Messages', href: '/worker/messages' },
+  { icon: Bell, label: 'Notifications', href: '/worker/notifications' },
 ];
 
 export default function WorkerLayout({ children }) {
@@ -42,18 +43,32 @@ export default function WorkerLayout({ children }) {
   const router = useRouter();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchUser = async () => {
       try {
         const data = await api.getMe();
-        setUser(data.user || data);
+        if (cancelled) return;
+        const currentUser = data.user || data;
+        if (currentUser.role !== 'worker') {
+          const destination = currentUser.role === 'admin' ? '/admin/dashboard' : '/customer/dashboard';
+          router.replace(destination);
+          return;
+        }
+        setUser(currentUser);
+        setLoading(false);
       } catch (err) {
-        console.error('Failed to fetch user:', err);
-      } finally {
+        if (cancelled) return;
+        if (err.status === 401 || err.status === 403) {
+          router.replace('/login?role=worker');
+          return;
+        }
+        console.error('Failed to verify worker session:', err);
         setLoading(false);
       }
     };
     fetchUser();
-  }, []);
+    return () => { cancelled = true; };
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -67,6 +82,27 @@ export default function WorkerLayout({ children }) {
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'W';
   const displayRating = user?.rating ? user.rating.toFixed(1) : '0.0';
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50" role="status" aria-label="Verifying session">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 text-center">
+        <div>
+          <p className="font-semibold text-neutral-900">Unable to verify your session.</p>
+          <button onClick={() => window.location.reload()} className="mt-3 font-semibold text-primary hover:underline">
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-neutral-50 flex-col">
@@ -218,12 +254,14 @@ export default function WorkerLayout({ children }) {
             <footer className="mt-12 pt-8 border-t border-border pb-8">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-secondary font-medium">
                 <span>© 2026 Serviqo. All rights reserved.</span>
-                <div className="flex items-center gap-4">
-                  <a href="#" className="hover:text-text-primary transition-colors">Privacy Policy</a>
-                  <span className="text-border">·</span>
-                  <a href="#" className="hover:text-text-primary transition-colors">Terms of Service</a>
-                  <span className="text-border">·</span>
-                  <a href="#" className="hover:text-text-primary transition-colors">Help Center</a>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+                  <Link href="/privacy-policy" className="hover:text-text-primary transition-colors">Privacy Policy</Link>
+                  <span className="text-border" aria-hidden="true">·</span>
+                  <Link href="/terms-of-service" className="hover:text-text-primary transition-colors">Terms of Service</Link>
+                  <span className="text-border" aria-hidden="true">·</span>
+                  <Link href="/cookie-policy" className="hover:text-text-primary transition-colors">Cookie Policy</Link>
+                  <span className="text-border" aria-hidden="true">·</span>
+                  <a href="mailto:help@serviqo.com" className="hover:text-text-primary transition-colors">Help Center</a>
                 </div>
               </div>
             </footer>

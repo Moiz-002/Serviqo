@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   Briefcase,
   CheckCircle,
@@ -21,6 +21,7 @@ import Link from 'next/link';
 import * as api from '@/lib/api';
 import { getRealtimeSocket } from '@/lib/realtime';
 import { useToast } from '@/components/ui/ToastProvider';
+import { DashboardSkeleton, InlineLoadError } from '@/components/ui/LoadingStates';
 
 const StatCard = ({ icon: Icon, label, value, trend, colorClass }) => (
   <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm">
@@ -52,12 +53,39 @@ export default function WorkerDashboard() {
   const [bidError, setBidError] = useState('');
   const [bidSuccess, setBidSuccess] = useState('');
   const [documentFiles, setDocumentFiles] = useState({ front: null, back: null });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const { push: showToast } = useToast();
 
+  const loadDashboard = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError('');
+    const [workerResult, bidsResult, jobsResult] = await Promise.allSettled([
+      api.getMe(),
+      api.getMyBids(),
+      api.getJobs(),
+    ]);
+
+    if (workerResult.status === 'fulfilled') {
+      const data = workerResult.value;
+      setWorker(data.user || data);
+    }
+    if (bidsResult.status === 'fulfilled') setBids(bidsResult.value.bids || []);
+    if (jobsResult.status === 'fulfilled') setOpenJobs(jobsResult.value.jobs || []);
+
+    const failures = [
+      workerResult.status === 'rejected' && 'profile',
+      bidsResult.status === 'rejected' && 'proposals',
+      jobsResult.status === 'rejected' && 'available jobs',
+    ].filter(Boolean);
+    if (failures.length) {
+      setLoadError(`Some dashboard data could not be loaded (${failures.join(', ')}). Check your connection and try again.`);
+    }
+    setIsLoading(false);
+  }, []);
+
   useEffect(() => {
-    api.getMe().then((data) => setWorker(data.user || data)).catch(() => {});
-    api.getMyBids().then((data) => setBids(data.bids || [])).catch(() => {});
-    api.getJobs().then((data) => setOpenJobs(data.jobs || [])).catch(() => {});
+    loadDashboard();
     const socket = getRealtimeSocket();
     const onDecision = ({ bidId, status }) => {
       setBids((current) => current.map((bid) => (
@@ -73,7 +101,7 @@ export default function WorkerDashboard() {
       socket.off('bid:decision', onDecision);
       socket.off('worker:verification', onVerification);
     };
-  }, []);
+  }, [loadDashboard]);
 
   const firstName = worker?.name?.split(' ')[0] || 'there';
 
@@ -147,8 +175,11 @@ export default function WorkerDashboard() {
     }
   };
 
+  if (isLoading) return <DashboardSkeleton />;
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {loadError && <InlineLoadError message={loadError} onRetry={loadDashboard} />}
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

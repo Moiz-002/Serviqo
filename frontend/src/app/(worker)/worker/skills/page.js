@@ -5,6 +5,7 @@ import { Wrench, CheckCircle2, Plus, X, Info, Save } from 'lucide-react';
 import { CATEGORIES } from '@/config/worker-constants';
 import TagInput from '@/components/ui/TagInput';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function WorkerSkillsPage() {
   const [primaryCategory, setPrimaryCategory] = useState('');
@@ -13,16 +14,27 @@ export default function WorkerSkillsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getMe().then((data) => {
+      if (cancelled) return;
       const u = data.user || data;
       const cat = CATEGORIES.find(c => c.name === u.serviceCategory || c.id === u.serviceCategory);
       setPrimaryCategory(cat?.id || 'electrical');
       setSkills(u.skills || []);
       setHourlyRate(String(u.hourlyRate || ''));
-    }).catch(() => {});
+    }).catch((error) => {
+      if (!cancelled) setLoadError(error.message || 'Unable to load your skills and rates.');
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading skills and rates" rows={3} />;
 
   const selectedCategoryData = CATEGORIES.find(c => c.id === primaryCategory);
 
@@ -46,6 +58,9 @@ export default function WorkerSkillsPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} className="mb-6" />
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Skills & Specializations</h1>

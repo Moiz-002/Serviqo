@@ -1,4 +1,5 @@
 import hashlib
+import asyncio
 import logging
 import math
 import os
@@ -22,11 +23,14 @@ EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 MAX_CANDIDATES = 100
 MAX_EMBEDDING_CACHE_ITEMS = 2_000
 _embedding_cache: OrderedDict[str, list[float]] = OrderedDict()
+RECOMMENDATION_TIMEOUT_SECONDS = 12
+GEMINI_REQUEST_TIMEOUT_MS = 8_000
 
 EMAIL_PATTERN = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)")
 CNIC_PATTERN = re.compile(r"\b\d{5}-?\d{7}-?\d\b")
 TOKEN_PATTERN = re.compile(r"[a-z0-9][a-z0-9+#.-]*", re.IGNORECASE)
+GENERIC_SKILL_WORDS = {"installation", "repair", "service", "cleaning", "maintenance"}
 
 
 class JobInput(BaseModel):
@@ -86,7 +90,13 @@ def _client() -> genai.Client:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="Gemini is not configured for recommendations")
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=GEMINI_REQUEST_TIMEOUT_MS,
+            retry_options=types.HttpRetryOptions(attempts=1),
+        ),
+    )
 
 
 def _upstream_status(error: Exception) -> int:
@@ -338,6 +348,47 @@ def build_recommendations(
     )
 
 
+def build_keyword_recommendations(request: RecommendationRequest) -> RecommendationResponse:
+    if not request.candidates:
+        return RecommendationResponse(analysisMode="no_candidates", requiredSkills=[], recommendations=[])
+
+    job_text = f"{request.job.title} {request.job.description}"
+    job_tokens = _normalized_tokens(job_text) - GENERIC_SKILL_WORDS
+    required_skills: list[str] = []
+    for candidate in request.candidates:
+        for skill in candidate.skills:
+            content_words = _normalized_tokens(skill) - GENERIC_SKILL_WORDS
+            if content_words and content_words.issubset(job_tokens) and skill not in required_skills:
+                required_skills.append(skill.strip()[:80])
+                if len(required_skills) == 12:
+                    break
+        if len(required_skills) == 12:
+            break
+
+    results = []
+    for candidate in request.candidates:
+        candidate_tokens = (
+            _normalized_tokens(" ".join([candidate.serviceCategory, *candidate.skills]))
+            - GENERIC_SKILL_WORDS
+        )
+        union = job_tokens | candidate_tokens
+        semantic_score = len(job_tokens & candidate_tokens) / len(union) if union else 0.0
+        results.append(_score_candidate(
+            request.job,
+            candidate,
+            required_skills,
+            "any",
+            [1.0, 0.0],
+            [semantic_score, math.sqrt(max(0.0, 1.0 - semantic_score * semantic_score))],
+        ))
+    results.sort(key=lambda item: (-item.score, item.workerId))
+    return RecommendationResponse(
+        analysisMode="keyword_fallback",
+        requiredSkills=required_skills,
+        recommendations=results[:request.limit],
+    )
+
+
 app = FastAPI(title="Serviqo Recommendation Service", version="1.0.0")
 
 
@@ -357,8 +408,28 @@ def recommend(
     request: RecommendationRequest,
     authorization: str | None = Header(default=None),
 ) -> RecommendationResponse:
+    return asyncio.run(_recommend_with_fallback(request, authorization))
+
+
+async def _recommend_with_fallback(
+    request: RecommendationRequest,
+    authorization: str | None,
+) -> RecommendationResponse:
     token = authorization.removeprefix("Bearer ") if authorization else None
     verify_backend(token)
     if not os.getenv("GEMINI_API_KEY"):
-        raise HTTPException(status_code=503, detail="Gemini is not configured for recommendations")
-    return build_recommendations(request)
+        logger.warning("Gemini is unavailable; using keyword recommendation fallback")
+        return build_keyword_recommendations(request)
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(build_recommendations, request),
+            timeout=RECOMMENDATION_TIMEOUT_SECONDS,
+        )
+    except HTTPException as error:
+        if error.status_code not in {502, 503}:
+            raise
+        logger.warning("Gemini recommendation failed with status %s; using keyword fallback", error.status_code)
+        return build_keyword_recommendations(request)
+    except asyncio.TimeoutError:
+        logger.warning("Gemini recommendation exceeded the service timeout; using keyword fallback")
+        return build_keyword_recommendations(request)

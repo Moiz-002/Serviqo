@@ -1,0 +1,21 @@
+{
+  "seed": 2026,
+  "generated_for": "Moiz-002/serviqo @ branch Moiz-002",
+  "users": 2020,
+  "jobs": 6500,
+  "bids": 26910,
+  "reviews": 3957,
+  "recommendationfeedbacks": 5650,
+  "conversations": 5301,
+  "messages": 21250,
+  "disputes": 34,
+  "workers": 420,
+  "customers": 1600,
+  "jobs_by_status": {
+    "open": 395,
+    "active": 15,
+    "completed": 5025,
+    "cancelled": 1065
+  },
+  "accepted_bids (price labels)": 5301
+}

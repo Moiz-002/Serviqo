@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import { InlineLoadError, SkeletonBlock } from '@/components/ui/LoadingStates';
 
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,12 +20,14 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   const fetchUsers = useCallback(() => {
     setIsLoading(true);
+    setLoadError('');
     const params = new URLSearchParams();
     if (searchTerm) params.set('q', searchTerm);
     if (roleFilter !== 'all') params.set('role', roleFilter);
@@ -37,7 +40,7 @@ export default function UserManagementPage() {
         setTotal(data.total || (data.users || []).length);
         setTotalPages(data.totalPages || 1);
       })
-      .catch(() => {})
+      .catch((error) => setLoadError(error.message || 'Unable to load users.'))
       .finally(() => setIsLoading(false));
   }, [searchTerm, roleFilter, statusFilter, page]);
 
@@ -120,6 +123,9 @@ export default function UserManagementPage() {
       </div>
 
       {/* User Table */}
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={fetchUsers} className="mb-6" />
+      )}
       <div className="bg-white rounded-[32px] border border-neutral-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -134,7 +140,15 @@ export default function UserManagementPage() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-neutral-400">Loading users…</td></tr>
+                Array.from({ length: 5 }, (_, index) => (
+                  <tr key={index} aria-hidden="true">
+                    <td className="px-6 py-5"><SkeletonBlock className="h-10 w-44" /></td>
+                    <td className="px-6 py-5"><SkeletonBlock className="h-6 w-20" /></td>
+                    <td className="px-6 py-5"><SkeletonBlock className="h-6 w-24" /></td>
+                    <td className="px-6 py-5"><SkeletonBlock className="h-4 w-24" /></td>
+                    <td className="px-6 py-5"><SkeletonBlock className="ml-auto h-8 w-8" /></td>
+                  </tr>
+                ))
               ) : filteredUsers.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-neutral-400">No users found.</td></tr>
               ) : filteredUsers.map((user) => (

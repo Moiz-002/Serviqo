@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DAYS_OF_WEEK, HOURS, RESPONSE_TIMES } from '@/config/worker-constants';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 const DAY_MAP = {
   Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday',
@@ -20,9 +21,13 @@ export default function WorkerAvailabilityPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getMe().then((data) => {
+      if (cancelled) return;
       const u = data.user || data;
       if (u.availability) {
         const days = Object.entries(u.availability)
@@ -35,8 +40,15 @@ export default function WorkerAvailabilityPage() {
         if (firstDay?.to) setEndTime(firstDay.to);
       }
       if (u.responseTime) setResponseTime(u.responseTime);
-    }).catch(() => {});
+    }).catch((error) => {
+      if (!cancelled) setLoadError(error.message || 'Unable to load your availability settings.');
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading availability" rows={3} />;
 
   const toggleDay = (day) => {
     setWorkingDays(prev =>
@@ -69,6 +81,9 @@ export default function WorkerAvailabilityPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} className="mb-6" />
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Availability & Schedule</h1>

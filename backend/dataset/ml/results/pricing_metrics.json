@@ -1,0 +1,127 @@
+{
+  "dataset": "SMD-2026 jobs.csv (accepted bids)",
+  "split": "chronological 80/20 + 5-fold CV on train",
+  "n_train": 4240,
+  "n_test": 1061,
+  "results": {
+    "A_report_formula_table_4_1": {
+      "holdout": {
+        "MAE_PKR": 2861.8,
+        "MedianAE_PKR": 1690.0,
+        "MAPE_pct": 79.48,
+        "MedianAPE_pct": 46.41,
+        "R2": 0.2536,
+        "R2_log": 0.2811,
+        "range_hit_rate_pct": 21.11,
+        "n": 1061
+      }
+    },
+    "ridge_tfidf": {
+      "cv5_train": {
+        "MAE_PKR": 1413.7,
+        "MedianAE_PKR": 669.5,
+        "MAPE_pct": 29.24,
+        "MedianAPE_pct": 22.83,
+        "R2": 0.7894,
+        "R2_log": 0.8131,
+        "range_hit_rate_pct": 44.34,
+        "n": 4240
+      },
+      "holdout": {
+        "MAE_PKR": 1326.1,
+        "MedianAE_PKR": 742.6,
+        "MAPE_pct": 29.97,
+        "MedianAPE_pct": 24.09,
+        "R2": 0.8095,
+        "R2_log": 0.8071,
+        "range_hit_rate_pct": 42.22,
+        "n": 1061
+      }
+    },
+    "gbm_tfidf_svd": {
+      "cv5_train": {
+        "MAE_PKR": 1565.4,
+        "MedianAE_PKR": 753.7,
+        "MAPE_pct": 32.78,
+        "MedianAPE_pct": 25.0,
+        "R2": 0.7472,
+        "R2_log": 0.7676,
+        "range_hit_rate_pct": 40.68,
+        "n": 4240
+      },
+      "holdout": {
+        "MAE_PKR": 1540.4,
+        "MedianAE_PKR": 810.0,
+        "MAPE_pct": 33.61,
+        "MedianAPE_pct": 26.38,
+        "R2": 0.7328,
+        "R2_log": 0.7564,
+        "range_hit_rate_pct": 37.04,
+        "n": 1061
+      }
+    }
+  },
+  "best_model": "ridge_tfidf",
+  "best_model_by_category": {
+    "AC & HVAC": {
+      "MAE_PKR": 1816.0,
+      "MedianAE_PKR": 1261.5,
+      "MAPE_pct": 22.27,
+      "MedianAPE_pct": 18.44,
+      "R2": 0.736,
+      "R2_log": 0.8191,
+      "range_hit_rate_pct": 54.5,
+      "n": 211
+    },
+    "Appliance Repair": {
+      "MAE_PKR": 586.8,
+      "MedianAE_PKR": 533.7,
+      "MAPE_pct": 27.19,
+      "MedianAPE_pct": 24.62,
+      "R2": 0.3258,
+      "R2_log": 0.3123,
+      "range_hit_rate_pct": 40.41,
+      "n": 146
+    },
+    "Carpentry": {
+      "MAE_PKR": 680.0,
+      "MedianAE_PKR": 519.7,
+      "MAPE_pct": 35.14,
+      "MedianAPE_pct": 29.58,
+      "R2": 0.3134,
+      "R2_log": 0.4959,
+      "range_hit_rate_pct": 30.48,
+      "n": 105
+    },
+    "Cleaning": {
+      "MAE_PKR": 3053.9,
+      "MedianAE_PKR": 1614.2,
+      "MAPE_pct": 34.13,
+      "MedianAPE_pct": 28.4,
+      "R2": 0.6039,
+      "R2_log": 0.7375,
+      "range_hit_rate_pct": 35.57,
+      "n": 149
+    },
+    "Electrical": {
+      "MAE_PKR": 814.5,
+      "MedianAE_PKR": 693.7,
+      "MAPE_pct": 35.02,
+      "MedianAPE_pct": 25.56,
+      "R2": 0.397,
+      "R2_log": 0.4716,
+      "range_hit_rate_pct": 41.05,
+      "n": 229
+    },
+    "Plumbing": {
+      "MAE_PKR": 1019.1,
+      "MedianAE_PKR": 715.1,
+      "MAPE_pct": 28.68,
+      "MedianAPE_pct": 23.84,
+      "R2": 0.9199,
+      "R2_log": 0.7218,
+      "range_hit_rate_pct": 42.99,
+      "n": 221
+    }
+  }
+}

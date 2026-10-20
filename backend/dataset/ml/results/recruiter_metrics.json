@@ -1,0 +1,154 @@
+{
+  "dataset": "SMD-2026",
+  "split": "chronological, newest 20% of hired jobs as test",
+  "n_train_jobs": 4240,
+  "n_test_jobs": 1061,
+  "mode": "offline (Gemini replaced by keyword extraction + TF-IDF)",
+  "ranking": {
+    "as_implemented": {
+      "report_table_4_1": {
+        "HitRate@5": 0.2394,
+        "HitRate@10": 0.3968,
+        "MRR": 0.1702,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "serviqo_hybrid_offline": {
+        "HitRate@5": 0.1951,
+        "HitRate@10": 0.3289,
+        "MRR": 0.1353,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "serviqo_keyword_fallback": {
+        "HitRate@5": 0.1989,
+        "HitRate@10": 0.3487,
+        "MRR": 0.1414,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "learned_logreg": {
+        "HitRate@5": 0.2366,
+        "HitRate@10": 0.4194,
+        "MRR": 0.1722,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "random (expected)": {
+        "HitRate@5": 0.0893,
+        "HitRate@10": 0.1786,
+        "MRR": 0.0817,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      }
+    },
+    "legacy_no_category_filter": {
+      "report_table_4_1": {
+        "HitRate@5": 0.2328,
+        "HitRate@10": 0.3742,
+        "MRR": 0.1476,
+        "hired_not_in_pool_pct": 46.56,
+        "mean_pool_size": 100.0,
+        "n_jobs": 1061
+      },
+      "serviqo_hybrid_offline": {
+        "HitRate@5": 0.2064,
+        "HitRate@10": 0.3648,
+        "MRR": 0.1269,
+        "hired_not_in_pool_pct": 46.56,
+        "mean_pool_size": 100.0,
+        "n_jobs": 1061
+      },
+      "serviqo_keyword_fallback": {
+        "HitRate@5": 0.2045,
+        "HitRate@10": 0.3591,
+        "MRR": 0.1296,
+        "hired_not_in_pool_pct": 46.56,
+        "mean_pool_size": 100.0,
+        "n_jobs": 1061
+      },
+      "learned_logreg": {
+        "HitRate@5": 0.2149,
+        "HitRate@10": 0.3487,
+        "MRR": 0.1376,
+        "hired_not_in_pool_pct": 46.56,
+        "mean_pool_size": 100.0,
+        "n_jobs": 1061
+      },
+      "random (expected)": {
+        "HitRate@5": 0.0267,
+        "HitRate@10": 0.0534,
+        "MRR": 0.0277,
+        "hired_not_in_pool_pct": 46.56,
+        "mean_pool_size": 100.0,
+        "n_jobs": 1061
+      }
+    },
+    "category_pool": {
+      "report_table_4_1": {
+        "HitRate@5": 0.2394,
+        "HitRate@10": 0.3968,
+        "MRR": 0.1702,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "serviqo_hybrid_offline": {
+        "HitRate@5": 0.1951,
+        "HitRate@10": 0.3289,
+        "MRR": 0.1353,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "serviqo_keyword_fallback": {
+        "HitRate@5": 0.1989,
+        "HitRate@10": 0.3487,
+        "MRR": 0.1414,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "learned_logreg": {
+        "HitRate@5": 0.2366,
+        "HitRate@10": 0.4194,
+        "MRR": 0.1722,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      },
+      "random (expected)": {
+        "HitRate@5": 0.0893,
+        "HitRate@10": 0.1786,
+        "MRR": 0.0817,
+        "hired_not_in_pool_pct": 0.0,
+        "mean_pool_size": 60.1,
+        "n_jobs": 1061
+      }
+    }
+  },
+  "feedback_auc": {
+    "report_table_4_1": 0.6627,
+    "learned_logreg": 0.7716,
+    "n_feedback": 1069,
+    "helpful_rate": 0.5285,
+    "serviqo_hybrid_offline": 0.6275,
+    "serviqo_keyword_fallback": 0.6554
+  },
+  "learned_logreg_coefficients": {
+    "category_match": 0.0,
+    "text_similarity": 0.009,
+    "skill_overlap": 0.114,
+    "same_city": 0.118,
+    "log_experience": 0.107,
+    "rating/5": 0.041,
+    "log_reviews": 0.302,
+    "feedback_score": 0.359,
+    "log_hourly_rate": -0.006
+  }
+}

@@ -9,15 +9,20 @@ import {
   ChevronRight
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function PlatformActivityPage() {
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({ open: 0, active: 0, completed: 0 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getAdminJobs()
       .then((data) => {
+        if (cancelled) return;
         const all = data.jobs || [];
         setJobs(all);
         setStats({
@@ -26,8 +31,14 @@ export default function PlatformActivityPage() {
           completed: all.filter((j) => j.status === 'completed').length,
         });
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load platform activity.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading platform activity" rows={5} />;
 
   const displayed = jobs.filter((j) =>
     !searchTerm || j.title?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -35,6 +46,9 @@ export default function PlatformActivityPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">Platform Activity</h1>

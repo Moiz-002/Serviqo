@@ -1,4 +1,5 @@
 import asyncio
+import time
 from types import SimpleNamespace
 
 import httpx
@@ -145,6 +146,82 @@ def test_transient_gemini_outage_is_reported_as_service_unavailable():
         service._extract_requirements(client, job)
 
     assert error.value.status_code == 503
+
+
+def test_keyword_fallback_ranks_matching_ac_hvac_worker_above_electrician():
+    request = service.RecommendationRequest(
+        job=service.JobInput(
+            title="Repair AC cooling",
+            description="The HVAC unit is not cooling and needs an AC repair.",
+            category="AC & HVAC",
+            city="Lahore",
+        ),
+        candidates=[
+            service.CandidateInput(
+                id="hvac",
+                serviceCategory="AC & HVAC",
+                skills=["AC repair", "HVAC maintenance"],
+                city="Lahore",
+                experience=6,
+                rating=4.8,
+                totalReviews=10,
+            ),
+            service.CandidateInput(
+                id="electrician",
+                serviceCategory="Electrical",
+                skills=["wiring", "light installation"],
+                city="Karachi",
+                experience=4,
+            ),
+        ],
+        limit=2,
+    )
+
+    result = service.build_keyword_recommendations(request)
+
+    assert result.analysisMode == "keyword_fallback"
+    assert result.recommendations[0].workerId == "hvac"
+    assert result.recommendations[0].score > result.recommendations[1].score
+    assert "AC repair" in result.requiredSkills
+
+
+def test_recommendation_endpoint_falls_back_when_gemini_key_is_unset(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
+    request = service.RecommendationRequest(
+        job=service.JobInput(title="Fix AC", description="AC is not cooling.", category="AC & HVAC"),
+        candidates=[
+            service.CandidateInput(id="hvac", serviceCategory="AC & HVAC", skills=["AC repair"]),
+        ],
+    )
+
+    result = service.recommend(request, authorization="Bearer test-service-token")
+
+    assert result.analysisMode == "keyword_fallback"
+    assert result.recommendations[0].workerId == "hvac"
+
+
+def test_recommendation_endpoint_falls_back_when_gemini_exceeds_timeout(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
+    monkeypatch.setattr(service, "RECOMMENDATION_TIMEOUT_SECONDS", 0.01)
+
+    def slow_gemini(_request):
+        time.sleep(0.05)
+        raise AssertionError("Gemini result should be discarded after the timeout")
+
+    monkeypatch.setattr(service, "build_recommendations", slow_gemini)
+    request = service.RecommendationRequest(
+        job=service.JobInput(title="Fix AC", description="AC is not cooling.", category="AC & HVAC"),
+        candidates=[
+            service.CandidateInput(id="hvac", serviceCategory="AC & HVAC", skills=["AC repair"]),
+        ],
+    )
+
+    result = service.recommend(request, authorization="Bearer test-service-token")
+
+    assert result.analysisMode == "keyword_fallback"
+    assert result.recommendations[0].workerId == "hvac"
 
 
 def test_internal_api_requires_backend_token_and_returns_schema(monkeypatch):

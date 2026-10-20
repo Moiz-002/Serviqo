@@ -9,6 +9,7 @@ docker-compose*.yml
 *.log
 public/uploads
 uploads
+dataset/
 frontend
 .vscode
 .idea

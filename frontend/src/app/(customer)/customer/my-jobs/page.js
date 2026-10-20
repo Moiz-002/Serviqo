@@ -20,18 +20,24 @@ import { CATEGORIES, BUDGET_RANGES } from '@/config/job-constants';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import * as api from '@/lib/api';
+import { InlineLoadError, SkeletonBlock } from '@/components/ui/LoadingStates';
 
 export default function MyJobsPage() {
   const [filter, setFilter] = useState('all');
   const [jobs, setJobs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getJobs()
-      .then((data) => setJobs(data.jobs || []))
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+      .then((data) => { if (!cancelled) setJobs(data.jobs || []); })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load your service requests.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const filteredJobs = jobs.filter((job) => {
@@ -69,6 +75,9 @@ export default function MyJobsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
+    {loadError && (
+      <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+    )}
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -117,7 +126,19 @@ export default function MyJobsPage() {
       {/* Jobs List */}
       <div className="space-y-6">
         {isLoading ? (
-          <div className="text-center py-16 text-text-tertiary">Loading your jobs…</div>
+          <div className="space-y-6" role="status" aria-label="Loading your jobs">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="flex gap-6 rounded-2xl border border-neutral-200 bg-white p-6">
+                <SkeletonBlock className="hidden h-36 w-40 shrink-0 rounded-xl sm:block" />
+                <div className="flex-1 space-y-4">
+                  <SkeletonBlock className="h-5 w-40" />
+                  <SkeletonBlock className="h-7 w-2/3 max-w-lg" />
+                  <SkeletonBlock className="h-4 w-full" />
+                  <SkeletonBlock className="h-4 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filteredJobs.length > 0 ? (
           filteredJobs.map((job) => (
             <Link key={job._id || job.id} href={`/customer/job/${job._id || job.id}`}>

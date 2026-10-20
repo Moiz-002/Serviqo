@@ -21,12 +21,15 @@ import {
   ThumbsUp,
   ThumbsDown,
   RefreshCw,
+  ShieldCheck,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as api from '@/lib/api';
 import { getRealtimeSocket } from '@/lib/realtime';
 import { useToast } from '@/components/ui/ToastProvider';
+import { PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 const STATUS_CONFIG = {
   open: { label: 'Open for Bids', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -102,7 +105,7 @@ function BidCard({ bid, jobId, jobStatus, acceptedBidId, onAccept, onReject, isA
               <button
                 onClick={() => onAccept(bid._id)}
                 disabled={isActing}
-                className="flex items-center gap-2 px-5 py-2 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 disabled:bg-primary-300 transition-all shadow-sm shadow-primary-500/20"
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-600 disabled:bg-primary-300 transition-all shadow-sm shadow-primary-500/20"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Accept & Hire
@@ -162,6 +165,7 @@ export default function JobDetailPage({ params }) {
   const [recommendationRetry, setRecommendationRetry] = useState(0);
   const [recommendationConsentJobId, setRecommendationConsentJobId] = useState('');
   const [feedbackSavingWorker, setFeedbackSavingWorker] = useState('');
+  const [invitingWorker, setInvitingWorker] = useState('');
   const [submittedRecommendationFeedback, setSubmittedRecommendationFeedback] = useState({});
   const { push: showToast } = useToast();
   const recommendationJobStatus = job?.status;
@@ -271,6 +275,25 @@ export default function JobDetailPage({ params }) {
     }
   };
 
+  const handleInviteRecommendedWorker = async (workerId) => {
+    if (invitingWorker) return;
+    setInvitingWorker(workerId);
+    try {
+      await api.inviteRecommendedWorker(id, { workerId });
+      setRecommendationData((current) => current ? {
+        ...current,
+        recommendations: current.recommendations.map((item) => (
+          String(item.worker._id) === workerId ? { ...item, invited: true } : item
+        )),
+      } : current);
+      showToast('Invitation sent. The worker can now submit a bid.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to invite this worker.', 'error');
+    } finally {
+      setInvitingWorker('');
+    }
+  };
+
   const handleDelete = async () => {
     if (!window.confirm('Delete this open job request? This cannot be undone.')) return;
     setIsManaging(true);
@@ -326,11 +349,7 @@ export default function JobDetailPage({ params }) {
   };
 
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto py-20 text-center text-neutral-400 text-sm">
-        Loading job details...
-      </div>
-    );
+    return <PageDataSkeleton label="Loading job details" rows={4} />;
   }
 
   if (error || !job) {
@@ -497,40 +516,90 @@ export default function JobDetailPage({ params }) {
       </div>
 
       {job.status === 'open' && (
-        <section className="overflow-hidden rounded-2xl border border-primary-100 bg-white shadow-sm" aria-labelledby="worker-recommendations-heading">
-          <div className="flex flex-col gap-3 border-b border-primary-50 bg-gradient-to-r from-primary-50/80 to-white p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-primary-100 p-2.5 text-primary-700">
-                <Sparkles className="h-5 w-5" aria-hidden="true" />
+        <section className="overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-lg shadow-primary-950/5" aria-labelledby="worker-recommendations-heading">
+          <div className="flex flex-col gap-4 border-b border-primary-100 bg-gradient-to-br from-primary-50 to-cyan-50/60 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl bg-gradient-to-br from-primary-600 to-cyan-500 p-3 text-white shadow-lg shadow-primary-600/20">
+                <Sparkles className="h-6 w-6" aria-hidden="true" />
               </div>
               <div>
-                <h2 id="worker-recommendations-heading" className="text-lg font-black text-neutral-900">
-                  Recommended professionals
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-primary-700">
+                  Smart job matching
+                </p>
+                <h2 id="worker-recommendations-heading" className="mt-1 text-xl font-black tracking-tight text-neutral-900 sm:text-2xl">
+                  Find the right professional
                 </h2>
-                <p className="mt-1 text-sm text-neutral-600">
-                  AI-assisted matches ranked using this request and verified worker profiles. Match scores show relative fit, not a probability or guarantee.
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-neutral-600">
+                  Compare verified workers by service fit, skills, experience, reviews, availability, and location.
                 </p>
               </div>
             </div>
-            {recommendationViewStatus === 'ready' && recommendationData?.analysisMode === 'gemini_hybrid' && (
-              <span className="w-fit rounded-full border border-primary-100 bg-white px-3 py-1 text-xs font-bold text-primary-700">
-                Gemini + profile matching
-              </span>
+            {recommendationViewStatus === 'ready' && (
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <span className="rounded-full border border-neutral-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-neutral-600">
+                  {recommendationData?.recommendations?.length || 0} matches
+                </span>
+                {recommendationData?.analysisMode === 'gemini_hybrid' && (
+                  <span className="rounded-full border border-primary-100 bg-white px-3 py-1.5 text-xs font-bold text-primary-700">
+                    AI + profile matching
+                  </span>
+                )}
+                {recommendationData?.analysisMode === 'keyword_fallback' && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">
+                    Basic matching (AI temporarily unavailable)
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
           {recommendationViewStatus === 'loading' && (
-            <div className="flex items-center gap-3 p-6 text-sm font-medium text-neutral-600" role="status">
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
-              Finding workers whose skills fit your request...
+            <div className="p-5 sm:p-7" role="status" aria-label="Finding recommended workers">
+              <div className="flex items-start gap-4 rounded-2xl border border-primary-100 bg-primary-50/60 p-4 sm:p-5">
+                <span className="mt-0.5 h-6 w-6 shrink-0 animate-spin rounded-full border-[3px] border-primary-200 border-t-primary-700" />
+                <div>
+                  <p className="font-bold text-neutral-900">Finding the best-fit workers</p>
+                  <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                    Comparing verified profiles and job requirements. If AI matching takes too long, basic matching will finish automatically.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {[0, 1].map((item) => (
+                  <div key={item} className="animate-pulse rounded-2xl border border-neutral-100 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-neutral-100" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-2/3 rounded bg-neutral-100" />
+                        <div className="h-2.5 w-1/2 rounded bg-neutral-100" />
+                      </div>
+                    </div>
+                    <div className="mt-4 h-2 rounded-full bg-neutral-100" />
+                    <div className="mt-4 h-3 w-full rounded bg-neutral-100" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {recommendationViewStatus === 'idle' && (
-            <div className="p-6">
-              <p className="max-w-3xl text-sm leading-relaxed text-neutral-600">
-                To find matches, Serviqo sends this job’s category and description plus de-identified Worker service and skill terms to Google Gemini. Common email, phone, and CNIC patterns are removed first; names, contact details, account IDs, ratings, and identity documents are not sent. Please do not include sensitive personal information in your job description.
-              </p>
+            <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <div className="flex flex-wrap gap-2">
+                  {['Verified profiles', 'Skill relevance', 'Ratings & availability'].map((label) => (
+                    <span key={label} className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-600">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-4 max-w-3xl text-sm leading-relaxed text-neutral-600">
+                  Serviqo compares your request with verified worker profiles. Job details and service/skill terms may be sent to Google Gemini for matching; common phone, email, and CNIC patterns are removed first. Names, contact details, account IDs, and identity documents are not sent. Avoid including sensitive personal information in your description.
+                </p>
+                <p className="mt-2 text-xs font-medium text-neutral-500">
+                  Match scores indicate relative fit, not a probability or guarantee.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -539,17 +608,21 @@ export default function JobDetailPage({ params }) {
                   setRecommendationStatus('loading');
                   setRecommendationConsentJobId(id);
                 }}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl !bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl !bg-primary px-6 py-3 text-sm font-bold text-white shadow-md shadow-primary/20 transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200"
               >
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Find recommended workers
+                Find matching workers
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
 
           {recommendationViewStatus === 'error' && (
-            <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between" role="alert">
-              <p className="text-sm text-neutral-600">{recommendationError}</p>
+            <div className="flex flex-col gap-4 p-5 sm:p-7 sm:flex-row sm:items-center sm:justify-between" role="alert">
+              <div>
+                <p className="font-bold text-neutral-900">We couldn’t load recommendations</p>
+                <p className="mt-1 text-sm text-neutral-600">{recommendationError}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -557,7 +630,7 @@ export default function JobDetailPage({ params }) {
                   setRecommendationStatus('loading');
                   setRecommendationRetry((attempt) => attempt + 1);
                 }}
-                className="inline-flex w-fit items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-bold text-neutral-700 transition hover:bg-neutral-50"
+                className="inline-flex w-fit shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-bold text-neutral-700 transition hover:bg-neutral-50"
               >
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Try again
@@ -567,12 +640,20 @@ export default function JobDetailPage({ params }) {
 
           {recommendationViewStatus === 'ready' && (
             recommendationData?.recommendations?.length ? (
-              <div className="divide-y divide-neutral-100">
-                {recommendationData.recommendations.map(({ worker, score, reasons, feedback }) => {
+              <div className="p-4 sm:p-6">
+                <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-extrabold text-neutral-900">Your best matches</h3>
+                    <p className="mt-1 text-xs text-neutral-500">Ranked by how closely each profile fits this request.</p>
+                  </div>
+                  <span className="text-xs font-semibold text-neutral-500">Top {recommendationData.recommendations.length} verified workers</span>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                {recommendationData.recommendations.map(({ worker, score, reasons, feedback, invited }, index) => {
                   const workerId = String(worker._id);
                   const submittedFeedback = submittedRecommendationFeedback[workerId];
                   return (
-                    <article key={workerId} className="p-5 sm:p-6">
+                    <article key={workerId} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:border-primary-200 hover:shadow-md sm:p-5">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                         <img
                           src={worker.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name || 'W')}&background=1E3A8A&color=fff`}
@@ -582,6 +663,9 @@ export default function JobDetailPage({ params }) {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
+                              <span className="mb-1 inline-flex rounded-full bg-primary-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-primary-700">
+                                Match #{index + 1}
+                              </span>
                               <Link href={`/workers/${workerId}`} className="font-bold text-neutral-900 hover:text-primary-700 hover:underline">
                                 {worker.name}
                               </Link>
@@ -589,9 +673,9 @@ export default function JobDetailPage({ params }) {
                                 {[worker.serviceCategory, worker.city].filter(Boolean).join(' · ')}
                               </p>
                             </div>
-                            <div className="min-w-28 text-left sm:text-right">
-                              <span className="text-lg font-black text-primary-700">{Math.round(score)}%</span>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Match score</p>
+                            <div className="rounded-xl bg-primary-50 px-3 py-2 text-left sm:text-right">
+                              <span className="text-xl font-black text-primary-700">{Math.round(score)}%</span>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-primary-500">Fit score</p>
                             </div>
                           </div>
 
@@ -639,6 +723,14 @@ export default function JobDetailPage({ params }) {
                               <MessageSquare className="h-4 w-4" aria-hidden="true" />
                               Message worker
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleInviteRecommendedWorker(workerId)}
+                              disabled={Boolean(invitingWorker) || invited || job.status !== 'open'}
+                              className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {invited ? 'Invited to bid' : invitingWorker === workerId ? 'Sending invite…' : 'Invite to bid'}
+                            </button>
                             <span className="ml-1 text-xs text-neutral-500">Was this recommendation useful?</span>
                             <button
                               type="button"
@@ -669,10 +761,28 @@ export default function JobDetailPage({ params }) {
                     </article>
                   );
                 })}
+                </div>
               </div>
             ) : (
-              <div className="p-6 text-sm text-neutral-600">
-                No verified workers are available to recommend for this request yet. You can still review proposals as they arrive.
+              <div className="p-6 sm:p-8">
+                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+                  <h3 className="font-bold text-neutral-900">No matching workers found yet</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                    There are no verified workers in this service category at the moment. You can still review proposals as they arrive.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecommendationError('');
+                      setRecommendationStatus('loading');
+                      setRecommendationRetry((attempt) => attempt + 1);
+                    }}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Search again
+                  </button>
+                </div>
               </div>
             )
           )}

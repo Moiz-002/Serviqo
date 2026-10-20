@@ -28,6 +28,18 @@ const uploadProfile = multer({ storage: createStorage('profiles') });
 const uploadCnic = multer({ storage: createStorage('cnic') });
 const uploadPortfolio = multer({ storage: createStorage('portfolio') });
 const uploadJobImages = multer({ storage: createStorage('jobs') });
+const uploadChatImage = multer({
+  storage: createStorage('chat'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      const error = new Error('Only PNG, JPEG, and WebP images are supported');
+      error.status = 400;
+      return callback(error);
+    }
+    return callback(null, true);
+  },
+});
 
 /**
  * Deletes an image from Cloudinary given its URL.
@@ -86,5 +98,6 @@ module.exports = {
   uploadCnic, 
   uploadPortfolio, 
   uploadJobImages,
+  uploadChatImage,
   deleteFromCloudinary 
 };

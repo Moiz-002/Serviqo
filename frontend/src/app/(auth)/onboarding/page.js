@@ -39,6 +39,7 @@ function buildAvailability(workingDays, from, to) {
 import FormField from '@/components/ui/FormField';
 import TagInput from '@/components/ui/TagInput';
 import FileUpload from '@/components/ui/FileUpload';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 import {
   CATEGORIES,
@@ -1368,12 +1369,15 @@ const StepIndicatorOnboarding = ({ currentStep = 1, completedSteps = [] }) => {
 export default function OnboardingPage() {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [profileLoadError, setProfileLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     const fetchUserData = async () => {
       try {
         const { user } = await api.getMe();
-        if (user) {
+        if (user && !cancelled) {
           dispatch({ type: 'SET_FIELD', field: 'displayName', value: user.name });
           // Format phone: remove +92 and handle spacing if needed
           let displayPhone = user.phone;
@@ -1383,10 +1387,16 @@ export default function OnboardingPage() {
           dispatch({ type: 'SET_FIELD', field: 'phone', value: displayPhone });
         }
       } catch (err) {
-        console.error('Error fetching user data for onboarding:', err);
+        if (!cancelled) {
+          console.error('Error fetching user data for onboarding:', err);
+          setProfileLoadError(err.message || 'Unable to load your account details.');
+        }
+      } finally {
+        if (!cancelled) setIsProfileLoading(false);
       }
     };
     fetchUserData();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -1456,9 +1466,14 @@ export default function OnboardingPage() {
     }
   };
 
+  if (isProfileLoading) return <PageDataSkeleton label="Loading your account details" rows={4} />;
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-3xl mx-auto">
+        {profileLoadError && (
+          <InlineLoadError message={profileLoadError} onRetry={() => window.location.reload()} className="mb-6" />
+        )}
         {state.saveError && (
           <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm">
             {state.saveError}

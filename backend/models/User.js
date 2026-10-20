@@ -12,6 +12,12 @@ const dayAvailabilitySchema = new Schema({
   to: { type: String, default: '17:00' },
 }, { _id: false });
 
+const fcmTokenSchema = new Schema({
+  token: { type: String, required: true },
+  platform: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
+  lastSeen: { type: Date, default: Date.now },
+}, { _id: false });
+
 const userSchema = new Schema({
   name: { type: String, required: true, trim: true },
   phone: { type: String, required: true, unique: true },
@@ -53,6 +59,7 @@ const userSchema = new Schema({
   rating: { type: Number, default: 0 },
   totalReviews: { type: Number, default: 0 },
   completedJobs: { type: Number, default: 0 },
+  fcmTokens: { type: [fcmTokenSchema], default: [], select: false },
 }, { timestamps: true });
 
 const User = model('User', userSchema);

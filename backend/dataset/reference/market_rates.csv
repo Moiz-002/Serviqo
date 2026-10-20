@@ -1,0 +1,61 @@
+category,service_type,unit,min_pkr,max_pkr,qty_min,qty_max,related_skills,source,source_url,range_note
+AC & HVAC,Split AC Service,per unit,2200,4500,1,3,AC servicing;Preventive maintenance;Condenser cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,Split AC Chemical Wash,per unit,3500,6500,1,3,AC servicing;Condenser cleaning;Preventive maintenance,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,Window AC Service,per unit,1800,3500,1,2,AC servicing;Preventive maintenance,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC Gas Charging (R22),per job,6000,10000,1,1,Gas refill;Refrigerant charging,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC Gas Charging (R32),per job,9000,14000,1,1,Gas refill;Refrigerant charging,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC Gas Top-Up,per job,2500,6000,1,1,Gas refill;Refrigerant charging,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,Split AC Installation,per unit,3500,7500,1,2,AC installation;Ductwork installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC Dismounting,per unit,1200,2500,1,2,AC installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC Shifting,per unit,4500,9000,1,2,AC installation;Gas refill,findworker.pk (Islamabad 2026),https://findworker.pk/prices/ac-services/,published range
+AC & HVAC,AC PCB Card Diagnosis,per job,1700,3000,1,1,Compressor repair;Thermostat setup,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 2000 -> 0.85x to 1.5x
+Plumbing,Tap Installation,per piece,600,1600,1,4,Tap replacement;Pipe fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Mixer Tap Installation,per piece,650,1800,1,3,Tap replacement;Bathroom fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Commode Installation,per piece,1800,4500,1,2,Bathroom fitting;Pipe fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Washbasin Installation,per piece,1000,3000,1,2,Bathroom fitting;Pipe fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Kitchen Sink Installation,per job,1500,3500,1,1,Pipe fitting;Drainage cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Flush Kit Replacement,per piece,800,1800,1,3,Bathroom fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Water Motor Installation,per job,1500,3000,1,1,Water pressure regulation;Pipe fitting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Gas Geyser Installation,per job,1800,4000,1,1,Geyser installation;Water heater installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Geyser Service,per job,1500,4000,1,1,Geyser installation;Water heater installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Water Tank Installation,per job,1200,4000,1,1,Pipe fitting;Underground pipe work,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Plumbing,Drain Blockage (sink to trap),per drain,400,1200,1,3,Drainage cleaning;Sewer line repair,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 2.4x
+Plumbing,Pipe Leak Repair,per job,1000,3500,1,1,Leak detection;Pipe fitting;Underground pipe work,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,assumption: priced after inspection; built from Rs 1500 first hour + Rs 500/hr (1-5 hrs)
+Plumbing,Bathroom Renovation (MEP),per bathroom,15000,24000,1,2,Bathroom fitting;Pipe fitting;Underground pipe work,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 18000 -> 0.85x to 1.35x
+Electrical,Ceiling Fan Installation,per piece,600,1500,1,4,Ceiling fan installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,LED Light Installation,per piece,500,1400,1,6,LED installation,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Power Plug Point Installation,per point,600,1600,1,4,Electrical troubleshooting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Switchboard Replacement,per piece,500,1400,1,4,Electrical troubleshooting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Circuit Breaker Replacement,per piece,600,1600,1,3,Circuit breaker repair,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Distribution Box Installation,per job,1600,3500,1,1,Circuit breaker repair;Electrical troubleshooting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,UPS Installation,per job,1000,2500,1,1,Backup power systems;Inverter wiring,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Inverter Installation,per job,1500,3500,1,1,Inverter wiring;Backup power systems;Solar panel wiring,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Changeover Switch Installation,per job,800,2500,1,1,Generator maintenance;Backup power systems,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,Electric Geyser Installation,per job,1500,3500,1,1,Electrical troubleshooting,findworker.pk (Islamabad 2026),https://findworker.pk/prices/electrical/,published range
+Electrical,CCTV Camera Installation,per camera,800,1800,1,4,CCTV installation;Home automation setup,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 1000 -> 0.8x to 1.8x
+Electrical,Short Circuit Fault Tracing,per job,850,1600,1,1,Electrical troubleshooting;Circuit breaker repair,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 1000 -> 0.85x to 1.6x
+Cleaning,Deep Cleaning 1-2 Bedroom,per job,6000,14000,1,1,Deep cleaning;Move-in/out cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Deep Cleaning 3 Bedroom,per job,9000,22000,1,1,Deep cleaning;Move-in/out cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Deep Cleaning 4-5 Bedroom,per job,14000,35000,1,1,Deep cleaning;Move-in/out cleaning;Post-construction cleanup,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Kitchen Deep Cleaning,per job,3000,9000,1,1,Deep cleaning;Stain removal,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Bathroom Deep Cleaning,per bathroom,1500,4500,1,3,Deep cleaning;Stain removal,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Sofa Cleaning,per seat,250,600,5,10,Upholstery cleaning;Stain removal,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Carpet Cleaning,per piece,2500,8000,1,3,Carpet cleaning;Stain removal,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Window & Glass Cleaning,per job,1500,5000,1,1,Window cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Mattress Cleaning,per piece,1000,3000,1,3,Upholstery cleaning,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Overhead Tank Cleaning,per tank,1500,5000,1,2,Routine maintenance;Pressure washing,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Cleaning,Underground Tank Cleaning,per tank,2500,7000,1,1,Routine maintenance;Pressure washing,findworker.pk (Islamabad 2026),https://findworker.pk/prices/cleaning/,published range
+Carpentry,Bed Assembly/Disassembly,per piece,400,900,1,3,Furniture assembly;Bed frame construction,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 1.8x
+Carpentry,Door Closer Installation,per piece,400,900,1,3,Door installation,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 1.8x
+Carpentry,Door Hinges Change,per door,400,900,1,4,Door installation;Repair restoration,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 1.8x
+Carpentry,Door Lock Change,per piece,400,900,1,4,Door installation;Repair restoration,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 1.8x
+Carpentry,New Door Installation,per door,800,1800,1,3,Door installation;Interior woodwork,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 1000 -> 0.8x to 1.8x
+Carpentry,Drawer Channel Change,per set,400,900,1,6,Custom cabinet making;Repair restoration,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 500 -> 0.8x to 1.8x
+Carpentry,Wall Shelf/Picture Fixing,per item,250,550,1,8,Shelving design;Interior woodwork,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,derived: listed 300 -> 0.8x to 1.8x
+Appliance Repair,Washing Machine Installation,per job,1000,2500,1,1,Washing machine repair;Parts replacement,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,published: 1000 simple / 2500 comprehensive
+Appliance Repair,Washing Machine Repair (labour),per job,1500,3500,1,1,Washing machine repair;Appliance diagnostics;Parts replacement,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,assumption: priced after inspection; Rs 1500 first hour + Rs 500/hr (1-5 hrs)
+Appliance Repair,Refrigerator Repair (labour),per job,1500,3500,1,1,Refrigerator repair;Appliance diagnostics;Parts replacement,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,assumption: priced after inspection; Rs 1500 first hour + Rs 500/hr (1-5 hrs)
+Appliance Repair,Microwave Repair (labour),per job,1500,2500,1,1,Microwave repair;Appliance diagnostics,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,assumption: priced after inspection; Rs 1500 first hour + Rs 500/hr (1-3 hrs)
+Appliance Repair,Water Dispenser Repair (labour),per job,1500,2500,1,1,Water dispenser maintenance;Appliance diagnostics,The Handyman (Islamabad),https://www.thehandyman.com.pk/prices,assumption: priced after inspection; Rs 1500 first hour + Rs 500/hr (1-3 hrs)
+Appliance Repair,Hob & Oven Service,per job,1200,3000,1,1,Oven repair;Parts replacement,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range
+Appliance Repair,Water Filter Service,per job,800,2000,1,1,Water dispenser maintenance;Parts replacement,findworker.pk (Islamabad 2026),https://findworker.pk/prices/plumbing/,published range

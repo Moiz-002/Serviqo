@@ -3,25 +3,45 @@
 import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare, ThumbsUp, ChevronDown, Filter } from 'lucide-react';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function WorkerReviewsPage() {
   const [reviews, setReviews] = useState([]);
   const [avgRating, setAvgRating] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getMyReviews()
       .then((data) => {
+        if (cancelled) return;
         const all = data.reviews || [];
         setReviews(all);
         if (all.length > 0) {
           setAvgRating(all.reduce((sum, r) => sum + (r.rating || 0), 0) / all.length);
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load your reviews.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading reviews" />;
 
   return (
     <div className="max-w-5xl mx-auto">
+      {loadError && (
+        <InlineLoadError
+          message={loadError}
+          onRetry={() => window.location.reload()}
+          className="mb-6"
+        />
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Ratings & Reviews</h1>

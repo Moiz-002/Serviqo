@@ -12,16 +12,26 @@ import {
   Flag
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function DisputeManagementPage() {
   const [disputes, setDisputes] = useState([]);
   const [filter, setFilter] = useState('open');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     api.getAdminDisputes()
-      .then((data) => setDisputes(data.disputes || []))
-      .catch(() => {});
+      .then((data) => { if (!cancelled) setDisputes(data.disputes || []); })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load disputes.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading disputes" rows={4} />;
 
   const handleResolve = async (disputeId) => {
     try {
@@ -43,6 +53,9 @@ export default function DisputeManagementPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

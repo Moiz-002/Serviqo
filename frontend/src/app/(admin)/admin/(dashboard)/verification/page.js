@@ -14,18 +14,28 @@ import {
   X
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function WorkerVerificationPage() {
   const [verifications, setVerifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [documentViewer, setDocumentViewer] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     api.getPendingVerifications()
-      .then((data) => setVerifications(data.verifications || data.workers || []))
-      .catch(() => {});
+      .then((data) => {
+        if (!cancelled) setVerifications(data.verifications || data.workers || []);
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load pending verifications.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -38,6 +48,8 @@ export default function WorkerVerificationPage() {
     document.addEventListener('keydown', closeWithEscape);
     return () => document.removeEventListener('keydown', closeWithEscape);
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading worker verifications" rows={4} />;
 
   const handleApprove = async () => {
     if (!selectedVerification || actionLoading) return;
@@ -65,6 +77,9 @@ export default function WorkerVerificationPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       {/* Header Section */}
       <div>
         <h1 className="text-3xl font-bold text-neutral-900">Worker Verification</h1>

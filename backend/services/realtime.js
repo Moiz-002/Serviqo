@@ -1,5 +1,6 @@
 let io;
 const Notification = require('../models/Notification');
+const { pushSafely } = require('./push');
 
 function configureRealtime(socketServer) {
   io = socketServer;
@@ -20,6 +21,15 @@ function emitToUsers(userIds, event, payload) {
 async function createNotification(recipient, values) {
   const notification = await Notification.create({ recipient, ...values });
   emitToUser(recipient, 'notification:created', notification.toObject());
+  pushSafely([recipient], {
+    title: notification.title,
+    body: notification.message,
+    data: {
+      type: notification.type,
+      href: notification.href,
+      notificationId: String(notification._id),
+    },
+  });
   return notification;
 }
 

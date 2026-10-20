@@ -5,26 +5,31 @@ import {
   Search,
   Send,
   MoreVertical,
-  Phone,
-  Video,
   Image as ImageIcon,
-  Paperclip,
-  Smile,
   Check,
   CheckCheck,
-  User,
-  ChevronLeft
+  ChevronLeft,
+  X,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import * as api from '@/lib/api';
 import { getRealtimeSocket } from '@/lib/realtime';
 import { useToast } from '@/components/ui/ToastProvider';
+import { SkeletonBlock } from '@/components/ui/LoadingStates';
+
+const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024;
+const CHAT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 export default function MessagesPage() {
   const [conversations, setConversations] = useState([]);
+  const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [activeConv, setActiveConv] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [isSending, setIsSending] = useState(false);
   const [showMobileList, setShowMobileMobileList] = useState(true);
   const [myUserId, setMyUserId] = useState(null);
   const [typingState, setTypingState] = useState(null);
@@ -32,19 +37,28 @@ export default function MessagesPage() {
   const typingTimeoutRef = useRef(null);
   const typingResetRef = useRef(null);
   const typingConversationRef = useRef(null);
+  const imageInputRef = useRef(null);
   const { push: showToast } = useToast();
 
   useEffect(() => {
+    let cancelled = false;
     const searchParams = new URLSearchParams(window.location.search);
     api.getMe().then((data) => setMyUserId((data.user || data)._id)).catch(() => {});
     api.getConversations()
       .then((data) => {
+        if (cancelled) return;
         const convs = data.conversations || [];
         setConversations(convs);
         if (searchParams.get('conversation')) {
           const requested = convs.find((conversation) => conversation._id === searchParams.get('conversation'));
-          if (requested) setActiveConv(requested);
-        } else if (convs.length > 0) setActiveConv(convs[0]);
+          if (requested) {
+            setIsMessagesLoading(true);
+            setActiveConv(requested);
+          }
+        } else if (convs.length > 0) {
+          setIsMessagesLoading(true);
+          setActiveConv(convs[0]);
+        }
         if (searchParams.get('participantId')) {
           api.getOrCreateConversation({
             participantId: searchParams.get('participantId'),
@@ -54,11 +68,18 @@ export default function MessagesPage() {
               conversation,
               ...current.filter((item) => item._id !== conversation._id),
             ]);
+            setIsMessagesLoading(true);
             setActiveConv(conversation);
           }).catch((err) => showToast(err.message || 'Unable to start conversation.', 'error'));
         }
       })
-      .catch((err) => showToast(err.message || 'Unable to load conversations.', 'error'));
+      .catch((err) => {
+        if (!cancelled) showToast(err.message || 'Unable to load conversations.', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setIsConversationsLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [showToast]);
 
   useEffect(() => {
@@ -70,7 +91,7 @@ export default function MessagesPage() {
         String(conversation._id) === String(conversationId)
           ? {
             ...conversation,
-            lastMessage: incoming.text,
+            lastMessage: incoming.text || (incoming.imageUrl ? 'Image attachment' : ''),
             lastMessageAt: incoming.createdAt || new Date().toISOString(),
             unreadCount: String(conversationId) === String(activeConv._id)
               ? 0
@@ -138,8 +159,10 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!activeConv) return;
+    let cancelled = false;
     api.getMessages(activeConv._id)
       .then((data) => {
+        if (cancelled) return;
         setMessages(data.messages || []);
         setConversations((current) => current.map((conversation) => (
           String(conversation._id) === String(activeConv._id)
@@ -147,34 +170,90 @@ export default function MessagesPage() {
             : conversation
         )));
       })
-      .catch((err) => showToast(err.message || 'Unable to load messages.', 'error'));
+      .catch((err) => {
+        if (!cancelled) showToast(err.message || 'Unable to load messages.', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setIsMessagesLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [activeConv, showToast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => () => {
+    if (selectedImage?.previewUrl) URL.revokeObjectURL(selectedImage.previewUrl);
+  }, [selectedImage]);
+
   const handleSend = async () => {
-    if (!message.trim() || !activeConv) return;
+    if ((!message.trim() && !selectedImage) || !activeConv || isSending) return;
     const text = message.trim();
+    const image = selectedImage;
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMessage = {
+      _id: optimisticId,
+      sender: { _id: myUserId },
+      text,
+      imageUrl: image?.previewUrl,
+      createdAt: new Date().toISOString(),
+      deliveryStatus: 'sent',
+      pending: true,
+    };
+    setMessages((current) => [...current, optimisticMessage]);
     setMessage('');
+    setIsSending(true);
     const socket = getRealtimeSocket();
     socket.emit('conversation:typing', { conversationId: activeConv._id, isTyping: false });
     typingConversationRef.current = null;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     try {
-      const data = await api.sendMessage(activeConv._id, { text });
-      const outgoing = data.message || { _id: Date.now(), sender: { _id: myUserId }, text, createdAt: new Date(), deliveryStatus: 'sent' };
-      setMessages((prev) => prev.some((item) => item._id === outgoing._id) ? prev : [...prev, outgoing]);
+      let body = { text };
+      if (image) {
+        body = new FormData();
+        if (text) body.append('text', text);
+        body.append('image', image.file);
+      }
+      const data = await api.sendMessage(activeConv._id, body);
+      const outgoing = data.message || optimisticMessage;
+      setMessages((current) => {
+        const withoutOptimistic = current.filter((item) => item._id !== optimisticId);
+        return withoutOptimistic.some((item) => item._id === outgoing._id)
+          ? withoutOptimistic
+          : [...withoutOptimistic, outgoing];
+      });
+      setSelectedImage(null);
       setConversations((current) => current.map((conversation) => (
         String(conversation._id) === String(activeConv._id)
-          ? { ...conversation, lastMessage: text, lastMessageAt: outgoing.createdAt }
+          ? { ...conversation, lastMessage: text || (image ? 'Image attachment' : ''), lastMessageAt: outgoing.createdAt }
           : conversation
       )));
     } catch (err) {
+      setMessages((current) => current.filter((item) => item._id !== optimisticId));
       setMessage(text);
       showToast(err.message || 'Unable to send message.', 'error');
+    } finally {
+      setIsSending(false);
     }
+  };
+
+  const handleImageSelection = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!CHAT_IMAGE_TYPES.includes(file.type)) {
+      showToast('Choose a PNG, JPEG, or WebP image.', 'error');
+      return;
+    }
+    if (file.size > MAX_CHAT_IMAGE_SIZE) {
+      showToast('Images must be 5 MB or smaller.', 'error');
+      return;
+    }
+    setSelectedImage({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
   };
 
   const handleMessageChange = (event) => {
@@ -227,7 +306,19 @@ export default function MessagesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
+          {isConversationsLoading ? (
+            <div className="space-y-4 p-4" role="status" aria-label="Loading conversations">
+              {Array.from({ length: 5 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4">
+                  <SkeletonBlock className="h-12 w-12 shrink-0 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <SkeletonBlock className="h-4 w-2/3" />
+                    <SkeletonBlock className="h-3 w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : conversations.length === 0 ? (
             <div className="p-8 text-center text-sm text-text-tertiary">No conversations yet.</div>
           ) : conversations.map((conv) => {
             const other = getOtherParticipant(conv);
@@ -236,6 +327,7 @@ export default function MessagesPage() {
               <button
                 key={conv._id}
                 onClick={() => {
+                  if (activeConv?._id !== conv._id) setIsMessagesLoading(true);
                   setActiveConv(conv);
                   setShowMobileMobileList(false);
                 }}
@@ -318,12 +410,6 @@ export default function MessagesPage() {
             })()}
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2.5 text-text-secondary hover:bg-neutral-100 rounded-xl transition-colors hidden sm:block">
-              <Phone className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 text-text-secondary hover:bg-neutral-100 rounded-xl transition-colors hidden sm:block">
-              <Video className="w-5 h-5" />
-            </button>
             <button className="p-2.5 text-text-secondary hover:bg-neutral-100 rounded-xl transition-colors">
               <MoreVertical className="w-5 h-5" />
             </button>
@@ -338,7 +424,13 @@ export default function MessagesPage() {
             </span>
           </div>
 
-          {messages.length === 0 ? (
+          {isMessagesLoading ? (
+            <div className="space-y-5 py-6" role="status" aria-label="Loading messages">
+              <SkeletonBlock className="h-12 w-3/5 max-w-md rounded-2xl" />
+              <SkeletonBlock className="ml-auto h-16 w-2/3 max-w-lg rounded-2xl" />
+              <SkeletonBlock className="h-14 w-1/2 max-w-sm rounded-2xl" />
+            </div>
+          ) : messages.length === 0 ? (
             <div className="text-center text-sm text-text-tertiary py-12">No messages yet. Say hello!</div>
           ) : messages.map((msg) => {
             const isMe = msg.sender?._id === myUserId || msg.sender === myUserId;
@@ -350,7 +442,24 @@ export default function MessagesPage() {
                     ? 'bg-primary text-white rounded-tr-none'
                     : 'bg-white border border-neutral-100 text-text-primary rounded-tl-none'}
                 `}>
-                  <p className="text-sm font-medium leading-relaxed">{msg.text || msg.content}</p>
+                  {msg.imageUrl && (
+                    <button
+                      type="button"
+                      className="mb-2 block overflow-hidden rounded-xl"
+                      onClick={() => setPreviewImage(api.getImageUrl(msg.imageUrl))}
+                      aria-label="View image attachment"
+                    >
+                      <img
+                        src={api.getImageUrl(msg.imageUrl)}
+                        alt="Chat attachment"
+                        className="max-h-72 max-w-full rounded-xl object-contain"
+                        loading="lazy"
+                      />
+                    </button>
+                  )}
+                  {(msg.text || msg.content) && (
+                    <p className="text-sm font-medium leading-relaxed">{msg.text || msg.content}</p>
+                  )}
                   <div className={`flex items-center gap-1 mt-2 ${isMe ? 'justify-end text-primary-light' : 'justify-start text-text-tertiary'}`}>
                     <span className="text-[9px] font-bold uppercase">
                       {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -371,10 +480,41 @@ export default function MessagesPage() {
 
         {/* Chat Input */}
         <div className="p-4 md:p-6 bg-white border-t border-neutral-100">
+          {selectedImage && (
+            <div className="mx-auto mb-3 flex max-w-5xl items-center gap-3 rounded-xl border border-border bg-neutral-50 p-2">
+              <img src={selectedImage.previewUrl} alt="Selected attachment preview" className="h-14 w-14 rounded-lg object-cover" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-text-primary">{selectedImage.file.name}</p>
+                <p className="text-xs text-text-tertiary">{(selectedImage.file.size / (1024 * 1024)).toFixed(1)} MB</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedImage(null)}
+                className="rounded-lg p-2 text-text-tertiary hover:bg-neutral-200"
+                aria-label="Remove selected image"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-4 max-w-5xl mx-auto">
             <div className="flex items-center gap-1 mb-1 shrink-0">
-              <button className="p-2 text-text-tertiary hover:text-primary transition-colors"><Paperclip className="w-5 h-5" /></button>
-              <button className="p-2 text-text-tertiary hover:text-primary transition-colors hidden sm:block"><ImageIcon className="w-5 h-5" /></button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleImageSelection}
+                className="hidden"
+                aria-label="Choose an image to attach"
+              />
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="rounded-xl p-2 text-text-tertiary transition-colors hover:text-primary"
+                aria-label="Attach an image"
+              >
+                <ImageIcon className="h-5 w-5" />
+              </button>
             </div>
             
             <div className="flex-1 bg-neutral-50 border border-border rounded-2xl px-4 py-3 flex items-center gap-3 focus-within:border-primary transition-all">
@@ -386,12 +526,11 @@ export default function MessagesPage() {
                 placeholder="Type your message..."
                 className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-text-primary placeholder:text-text-tertiary"
               />
-              <button className="text-text-tertiary hover:text-warning transition-colors"><Smile className="w-5 h-5" /></button>
             </div>
 
             <button
               onClick={handleSend}
-              disabled={!message.trim()}
+              disabled={(!message.trim() && !selectedImage) || isSending}
               className="mb-1 p-3.5 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-50"
             >
               <Send className="w-5 h-5" />
@@ -399,6 +538,30 @@ export default function MessagesPage() {
           </div>
         </div>
       </Card>
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full bg-black/50 p-3 text-white hover:bg-black/70"
+            onClick={() => setPreviewImage(null)}
+            aria-label="Close image preview"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Full-size chat attachment"
+            className="max-h-full max-w-full object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

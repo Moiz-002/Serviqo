@@ -17,14 +17,24 @@ import Link from 'next/link';
 import { BUDGET_RANGES } from '@/config/job-constants';
 import Card from '@/components/ui/Card';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function MyJobsPage() {
   const [filter, setFilter] = useState('all');
   const [jobs, setJobs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    api.getJobs().then((data) => setJobs(data.jobs || [])).catch(() => {});
+    let cancelled = false;
+    api.getJobs()
+      .then((data) => { if (!cancelled) setJobs(data.jobs || []); })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || 'Unable to load your service requests.');
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const filteredJobs = jobs.filter((job) => {
@@ -42,9 +52,14 @@ export default function MyJobsPage() {
     }
   };
 
+  if (isLoading) return <PageDataSkeleton label="Loading your job requests" rows={4} />;
+
   return (
     <div className="min-h-screen bg-neutral-50 py-12 px-4">
       <div className="max-w-5xl mx-auto">
+        {loadError && (
+          <InlineLoadError message={loadError} onRetry={() => window.location.reload()} className="mb-6" />
+        )}
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>

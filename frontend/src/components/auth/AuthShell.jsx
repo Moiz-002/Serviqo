@@ -1,6 +1,6 @@
 'use client';
 
-import { Globe, HelpCircle } from 'lucide-react';
+import { Globe, HelpCircle, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 export const AuthShell = ({ children }) => {
@@ -22,11 +22,11 @@ export const AuthShell = ({ children }) => {
 
           {/* Right Links */}
           <div className="flex items-center gap-6">
-            <a href="#" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors text-sm">
+            <a href="#" className="flex items-center gap-1.5 text-text-accent hover:text-primary transition-colors text-sm">
               <Globe className="w-4 h-4" />
               <span>English</span>
             </a>
-            <a href="#" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors text-sm">
+            <a href="mailto:help@serviqo.com" className="flex items-center gap-1.5 text-text-accent hover:text-primary transition-colors text-sm">
               <HelpCircle className="w-4 h-4" />
               <span>Help</span>
             </a>
@@ -43,19 +43,24 @@ export const AuthShell = ({ children }) => {
       <footer className="bg-surface border-t border-border">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-text-secondary">
           <span>© 2026 Serviqo. All rights reserved.</span>
-          <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-text-primary transition-colors">
+          <nav aria-label="Legal and support links" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <Link href="/privacy-policy" className="hover:text-text-primary transition-colors">
               Privacy Policy
-            </a>
-            <span className="text-border">·</span>
-            <a href="#" className="hover:text-text-primary transition-colors">
+            </Link>
+            <span className="text-border" aria-hidden="true">·</span>
+            <Link href="/terms-of-service" className="hover:text-text-primary transition-colors">
               Terms of Service
-            </a>
-            <span className="text-border">·</span>
-            <a href="#" className="hover:text-text-primary transition-colors">
+            </Link>
+            <span className="text-border" aria-hidden="true">·</span>
+            <Link href="/cookie-policy" className="hover:text-text-primary transition-colors">
               Cookie Policy
+            </Link>
+            <span className="text-border" aria-hidden="true">·</span>
+            <a href="mailto:help@serviqo.com" className="inline-flex items-center gap-1 hover:text-text-primary transition-colors">
+              <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+              Contact
             </a>
-          </div>
+          </nav>
         </div>
       </footer>
     </div>

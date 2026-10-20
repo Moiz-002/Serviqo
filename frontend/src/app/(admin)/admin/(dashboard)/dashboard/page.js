@@ -36,29 +36,43 @@ const StatsCard = ({ title, value, change, icon: Icon, colorClass }) => (
 
 export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState(null);
-  const [recentJobs, setRecentJobs] = useState(DUMMY_PLATFORM_ACTIVITY);
+  const [recentJobs, setRecentJobs] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    api.getAdminAnalytics().then((data) => {
-      const summary = data.analytics || data;
-      setAnalytics({
-        totalUsers: summary.users?.total ?? summary.totalUsers ?? 0,
-        totalWorkers: summary.users?.workers ?? summary.totalWorkers ?? 0,
-        activeJobs: summary.jobs?.active ?? summary.activeJobs ?? 0,
-        completedJobs: summary.jobs?.completed ?? summary.completedJobs ?? 0,
-        pendingVerifications: summary.pendingVerifications ?? 0,
-        openDisputes: summary.openDisputes ?? 0,
-      });
-    }).catch(() => {});
+    let isMounted = true;
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      setLoadError('');
 
-    api.getPendingVerifications().then((data) => {
-      setPendingCount((data.verifications || data.workers || []).length);
-    }).catch(() => {});
+      const [analyticsResult, verificationResult, jobsResult] = await Promise.allSettled([
+        api.getAdminAnalytics(),
+        api.getPendingVerifications(),
+        api.getAdminJobs(),
+      ]);
 
-    api.getAdminJobs().then((data) => {
-      const jobs = data.jobs || [];
-      if (jobs.length > 0) {
+      if (!isMounted) return;
+
+      if (analyticsResult.status === 'fulfilled') {
+        const summary = analyticsResult.value.analytics || analyticsResult.value;
+        setAnalytics({
+          totalUsers: summary.users?.total ?? summary.totalUsers ?? 0,
+          totalWorkers: summary.users?.workers ?? summary.totalWorkers ?? 0,
+          activeJobs: summary.jobs?.active ?? summary.activeJobs ?? 0,
+          completedJobs: summary.jobs?.completed ?? summary.completedJobs ?? 0,
+          pendingVerifications: summary.pendingVerifications ?? 0,
+          openDisputes: summary.openDisputes ?? 0,
+        });
+      }
+
+      if (verificationResult.status === 'fulfilled') {
+        setPendingCount((verificationResult.value.verifications || verificationResult.value.workers || []).length);
+      }
+
+      if (jobsResult.status === 'fulfilled') {
+        const jobs = jobsResult.value.jobs || [];
         setRecentJobs(jobs.slice(0, 3).map((j) => ({
           id: j._id,
           title: j.title,
@@ -68,8 +82,39 @@ export default function AdminDashboardPage() {
           budget: j.budgetRange,
         })));
       }
-    }).catch(() => {});
+
+      const failed = [
+        analyticsResult.status === 'rejected' && 'analytics',
+        verificationResult.status === 'rejected' && 'verification queue',
+        jobsResult.status === 'rejected' && 'recent jobs',
+      ].filter(Boolean);
+
+      if (failed.length) {
+        setLoadError(`Some dashboard values could not be refreshed (${failed.join(', ')}).`);
+      }
+
+      setIsLoading(false);
+    };
+
+    loadDashboard();
+    return () => { isMounted = false; };
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="h-8 w-56 animate-pulse rounded-xl bg-neutral-200" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-32 rounded-[24px] border border-neutral-200 bg-white p-6 shadow-sm animate-pulse">
+              <div className="h-5 w-24 rounded bg-neutral-200" />
+              <div className="mt-6 h-8 w-20 rounded bg-neutral-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const stats = analytics || DUMMY_ANALYTICS;
 

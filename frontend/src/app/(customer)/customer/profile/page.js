@@ -16,12 +16,15 @@ import {
 import Card from '@/components/ui/Card';
 import FormField from '@/components/ui/FormField';
 import * as api from '@/lib/api';
+import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function CustomerProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [avatarPreview, setAvatarPreview] = useState(null);
   const avatarFileRef = useRef(null);
 
@@ -37,7 +40,9 @@ export default function CustomerProfilePage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     api.getMe().then((data) => {
+      if (cancelled) return;
       const u = data.user || data;
       setFormData({
         fullName: u.name || '',
@@ -49,8 +54,15 @@ export default function CustomerProfilePage() {
         createdAt: u.createdAt || '',
         jobsPosted: u.jobsPosted || 0,
       });
-    }).catch(() => {});
+    }).catch((error) => {
+      if (!cancelled) setLoadError(error.message || 'Unable to load your profile.');
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  if (isLoading) return <PageDataSkeleton label="Loading your profile" rows={4} />;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -87,6 +99,9 @@ export default function CustomerProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {loadError && (
+        <InlineLoadError message={loadError} onRetry={() => window.location.reload()} />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

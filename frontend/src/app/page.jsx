@@ -1252,11 +1252,11 @@ const FooterSection = () => {
             <div className="col-span-2 sm:col-span-1">
               <h4 className="!text-white font-black text-lg mb-8 uppercase tracking-widest">Support</h4>
               <ul className="space-y-4 text-navy-100 font-bold">
-                {['Help Center', 'Trust Center', 'Terms of Use', 'Privacy Policy'].map((item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors cursor-pointer">{item}</a>
-                  </li>
-                ))}
+                <li><a href="mailto:help@serviqo.com" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="mailto:help@serviqo.com?subject=Serviqo%20Trust%20and%20Safety" className="hover:text-white transition-colors">Trust Center</a></li>
+                <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Use</Link></li>
+                <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link></li>
               </ul>
             </div>
           </div>
