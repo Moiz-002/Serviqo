@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare, ThumbsUp, ChevronDown, Filter } from 'lucide-react';
 import * as api from '@/lib/api';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
 export default function WorkerReviewsPage() {
@@ -54,11 +55,11 @@ export default function WorkerReviewsPage() {
             Filter
             <ChevronDown className="w-4 h-4" />
           </div>
-          <select className="bg-white px-4 py-2 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 outline-none">
+          <BrandedSelect aria-label="Sort reviews" className="bg-white px-4 py-2 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600">
             <option>Most Recent</option>
             <option>Highest Rated</option>
             <option>Lowest Rated</option>
-          </select>
+          </BrandedSelect>
         </div>
       </div>
 

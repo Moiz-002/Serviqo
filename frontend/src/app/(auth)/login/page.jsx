@@ -31,6 +31,15 @@ function getServerRequestedRole() {
   return null;
 }
 
+function getIntendedUrlForRole(role) {
+  const params = new URLSearchParams(window.location.search);
+  const intendedUrl = params.get('intendedUrl');
+  if (!intendedUrl || !intendedUrl.startsWith('/') || intendedUrl.startsWith('//')) return null;
+  if (role === 'worker' && intendedUrl.startsWith('/jobs/')) return intendedUrl;
+  if (role === 'customer' && intendedUrl.startsWith('/customer/')) return intendedUrl;
+  return null;
+}
+
 function normalizePakistanMobile(value) {
   const digits = value.replace(/\D/g, '');
   const nationalNumber = digits.startsWith('92')
@@ -98,7 +107,10 @@ export default function LoginPage() {
         : normalizePakistanMobile(email);
       const data = await api.login({ identifier, password });
       const role = data.user?.role;
-      if (role === 'worker') {
+      const intendedUrl = getIntendedUrlForRole(role);
+      if (intendedUrl) {
+        router.replace(intendedUrl);
+      } else if (role === 'worker') {
         router.push('/worker/dashboard');
       } else if (role === 'admin') {
         router.push('/admin/dashboard');

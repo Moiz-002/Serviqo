@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Save, User, MapPin, Briefcase, Phone, Mail } from 'lucide-react';
 import FormField from '@/components/ui/FormField';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import { CITIES } from '@/config/worker-constants';
 import * as api from '@/lib/api';
 import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
@@ -173,7 +174,7 @@ export default function WorkerProfilePage() {
               <FormField label="Years of Experience" htmlFor="yearsExperience">
                 <div className="relative">
                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                  <select
+                  <BrandedSelect
                     id="yearsExperience"
                     name="yearsExperience"
                     value={formData.yearsExperience}
@@ -186,7 +187,7 @@ export default function WorkerProfilePage() {
                     <option value="5">5 Years</option>
                     <option value="8">8 Years</option>
                     <option value="10">10+ Years</option>
-                  </select>
+                  </BrandedSelect>
                 </div>
               </FormField>
             </div>
@@ -206,7 +207,7 @@ export default function WorkerProfilePage() {
               <FormField label="City" htmlFor="city">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                  <select
+                  <BrandedSelect
                     id="city"
                     name="city"
                     value={formData.city}
@@ -216,7 +217,7 @@ export default function WorkerProfilePage() {
                     {CITIES.map(city => (
                       <option key={city} value={city}>{city}</option>
                     ))}
-                  </select>
+                  </BrandedSelect>
                 </div>
               </FormField>
 

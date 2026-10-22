@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import FormField from '@/components/ui/FormField';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import * as api from '@/lib/api';
 import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
@@ -250,7 +251,7 @@ export default function CustomerProfilePage() {
               <FormField label="City">
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                  <select
+                  <BrandedSelect
                     name="city"
                     value={formData.city}
                     onChange={handleInputChange}
@@ -261,7 +262,7 @@ export default function CustomerProfilePage() {
                     <option value="Rawalpindi">Rawalpindi</option>
                     <option value="Lahore">Lahore</option>
                     <option value="Karachi">Karachi</option>
-                  </select>
+                  </BrandedSelect>
                 </div>
               </FormField>
 

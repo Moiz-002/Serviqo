@@ -138,6 +138,8 @@ export const uploadCnic = (formData) => request('/worker/cnic', { method: 'POST'
 // Jobs
 export const createJob = (formData) => request('/jobs', { method: 'POST', body: formData, retryTransient: true });
 export const getJobs = () => request('/jobs');
+export const getPublicJobs = (params = '') => request(`/jobs/public${params ? `?${params}` : ''}`);
+export const getPublicJob = (jobId) => request(`/jobs/public/${encodeURIComponent(jobId)}`);
 export const getJobById = (id) => request(`/jobs/${id}`);
 export const getJobRecommendations = (jobId) => request(`/jobs/${jobId}/recommendations`);
 export const inviteRecommendedWorker = (jobId, body) => request(`/jobs/${jobId}/recommendations/invite`, {
@@ -184,7 +186,7 @@ export const markNotificationRead = (notificationId) => request(`/notifications/
 export const deleteNotification = (notificationId) => request(`/notifications/${notificationId}`, { method: 'DELETE' });
 
 // Admin
-export const getAdminAnalytics = () => request('/admin/analytics');
+export const getAdminAnalytics = (params = '') => request(`/admin/analytics${params ? `?${params}` : ''}`);
 export const getAdminUsers = (params = '') => request(`/admin/users?${params}`);
 export const updateUserStatus = (userId, body) => request(`/admin/users/${userId}/status`, { method: 'PUT', body: JSON.stringify(body) });
 export const getAdminJobs = () => request('/admin/jobs');

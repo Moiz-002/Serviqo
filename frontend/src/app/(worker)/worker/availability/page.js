@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DAYS_OF_WEEK, HOURS, RESPONSE_TIMES } from '@/config/worker-constants';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import * as api from '@/lib/api';
 import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
 
@@ -146,23 +147,23 @@ export default function WorkerAvailabilityPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-xl">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-2">Starts At</label>
-              <select
+              <BrandedSelect
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none appearance-none cursor-pointer"
               >
                 {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
+              </BrandedSelect>
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-2">Ends At</label>
-              <select
+              <BrandedSelect
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none appearance-none cursor-pointer"
               >
                 {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
+              </BrandedSelect>
             </div>
           </div>
         </section>

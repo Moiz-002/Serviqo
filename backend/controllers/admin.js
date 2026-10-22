@@ -4,7 +4,41 @@ const Dispute = require('../models/Dispute');
 const Review = require('../models/Review');
 const { emitToUser, createNotification } = require('../services/realtime');
 
+function parseAnalyticsDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value
+    ? null
+    : parsed;
+}
+
 async function getAnalytics(req, res) {
+  const { startDate, endDate } = req.query;
+  if (Boolean(startDate) !== Boolean(endDate)) {
+    return res.status(400).json({ error: 'Both startDate and endDate are required' });
+  }
+
+  let dateFilter;
+  let dates = [];
+  if (startDate && endDate) {
+    const start = parseAnalyticsDate(startDate);
+    const end = parseAnalyticsDate(endDate);
+    if (!start || !end || start > end) {
+      return res.status(400).json({ error: 'A valid date range is required' });
+    }
+    const endExclusive = new Date(end);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    if (endExclusive.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ error: 'Analytics date ranges cannot exceed 366 days' });
+    }
+    dateFilter = { $gte: start, $lt: endExclusive };
+    for (let cursor = new Date(start); cursor < endExclusive; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      dates.push(cursor.toISOString().slice(0, 10));
+    }
+  }
+
+  const userDateCriteria = dateFilter ? { createdAt: dateFilter } : {};
+  const jobDateCriteria = dateFilter ? { createdAt: dateFilter } : {};
   const [
     totalUsers,
     totalWorkers,
@@ -14,22 +48,80 @@ async function getAnalytics(req, res) {
     completedJobs,
     pendingVerifications,
     openDisputes,
+    userActivity,
+    jobActivity,
+    jobCategories,
   ] = await Promise.all([
-    User.countDocuments({ role: { $in: ['customer', 'worker'] } }),
-    User.countDocuments({ role: 'worker' }),
-    User.countDocuments({ role: 'customer' }),
-    Job.countDocuments(),
-    Job.countDocuments({ status: 'active' }),
-    Job.countDocuments({ status: 'completed' }),
-    User.countDocuments({ role: 'worker', cnicFront: { $exists: true, $ne: null }, cnicVerified: false }),
-    Dispute.countDocuments({ status: 'open' }),
+    User.countDocuments({ ...userDateCriteria, role: { $in: ['customer', 'worker'] } }),
+    User.countDocuments({ ...userDateCriteria, role: 'worker' }),
+    User.countDocuments({ ...userDateCriteria, role: 'customer' }),
+    Job.countDocuments(jobDateCriteria),
+    Job.countDocuments({ ...jobDateCriteria, status: 'active' }),
+    Job.countDocuments({ ...jobDateCriteria, status: 'completed' }),
+    User.countDocuments({
+      ...userDateCriteria,
+      role: 'worker',
+      cnicFront: { $exists: true, $ne: null },
+      cnicVerified: false,
+    }),
+    Dispute.countDocuments({ ...(dateFilter ? { createdAt: dateFilter } : {}), status: 'open' }),
+    dateFilter ? User.aggregate([
+      { $match: { ...userDateCriteria, role: { $in: ['customer', 'worker'] } } },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+            role: '$role',
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]) : [],
+    dateFilter ? Job.aggregate([
+      { $match: jobDateCriteria },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+            status: '$status',
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]) : [],
+    dateFilter ? Job.aggregate([
+      { $match: jobDateCriteria },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+    ]) : [],
   ]);
+
+  const usersByDate = new Map(dates.map((date) => [date, 0]));
+  const jobsByDate = new Map(dates.map((date) => [date, 0]));
+  const categoriesTotal = jobCategories.reduce((sum, item) => sum + item.count, 0);
+  for (const item of userActivity) {
+    usersByDate.set(item._id.date, (usersByDate.get(item._id.date) || 0) + item.count);
+  }
+  for (const item of jobActivity) {
+    jobsByDate.set(item._id.date, (jobsByDate.get(item._id.date) || 0) + item.count);
+  }
 
   return res.json({
     users: { total: totalUsers, workers: totalWorkers, customers: totalCustomers },
     jobs: { total: totalJobs, active: activeJobs, completed: completedJobs },
     pendingVerifications,
     openDisputes,
+    dateRange: startDate && endDate ? { startDate, endDate } : null,
+    trend: dates.map((date) => ({
+      date,
+      users: usersByDate.get(date) || 0,
+      jobs: jobsByDate.get(date) || 0,
+    })),
+    categories: jobCategories.map((item) => ({
+      name: item._id || 'Uncategorized',
+      count: item.count,
+      percentage: categoriesTotal ? Math.round((item.count / categoriesTotal) * 100) : 0,
+    })),
   });
 }
 
@@ -125,7 +217,7 @@ async function getPendingVerifications(req, res) {
     cnicFront: { $exists: true, $ne: null },
     cnicVerified: false,
     cnicRejectionReason: { $exists: false },
-  }).select('name phone email city cnicFront cnicBack createdAt cnicRejectionReason');
+  }).select('name phone email city profilePicture serviceCategory cnicFront cnicBack createdAt cnicRejectionReason');
 
   return res.json({ verifications: workers, workers });
 }

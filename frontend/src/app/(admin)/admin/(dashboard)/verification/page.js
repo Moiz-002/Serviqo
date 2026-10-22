@@ -23,7 +23,7 @@ export default function WorkerVerificationPage() {
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [documentViewer, setDocumentViewer] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -38,42 +38,46 @@ export default function WorkerVerificationPage() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const closeWithEscape = (event) => {
-      if (event.key === 'Escape') {
-        setDocumentViewer(null);
-        setSelectedVerification(null);
-      }
-    };
-    document.addEventListener('keydown', closeWithEscape);
-    return () => document.removeEventListener('keydown', closeWithEscape);
-  }, []);
-
   if (isLoading) return <PageDataSkeleton label="Loading worker verifications" rows={4} />;
 
   const handleApprove = async () => {
     if (!selectedVerification || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       await api.approveVerification(selectedVerification._id);
       setVerifications((prev) => prev.filter((v) => v._id !== selectedVerification._id));
       setSelectedVerification(null);
-    } catch {}
-    setActionLoading(false);
+    } catch (error) {
+      setActionError(error.message || 'Unable to approve this worker verification.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleReject = async () => {
     if (!selectedVerification || actionLoading) return;
     if (rejectReason.trim().length < 10) return;
     setActionLoading(true);
+    setActionError('');
     try {
       await api.rejectVerification(selectedVerification._id, { reason: rejectReason.trim() });
       setVerifications((prev) => prev.filter((v) => v._id !== selectedVerification._id));
       setSelectedVerification(null);
       setRejectReason('');
-    } catch {}
-    setActionLoading(false);
+    } catch (error) {
+      setActionError(error.message || 'Unable to reject this worker verification.');
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  const documents = selectedVerification
+    ? [
+      { src: selectedVerification.cnicFront, label: 'CNIC front' },
+      { src: selectedVerification.cnicBack, label: 'CNIC back' },
+    ].filter((item) => item.src)
+    : [];
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -109,8 +113,12 @@ export default function WorkerVerificationPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-secondary-50 flex items-center justify-center text-secondary-600">
-                        <User className="w-6 h-6" />
+                      <div className="w-12 h-12 rounded-2xl bg-secondary-50 flex items-center justify-center text-secondary-600 overflow-hidden">
+                        {verification.profilePicture ? (
+                          <img src={api.getImageUrl(verification.profilePicture)} alt={`${verification.name} profile`} className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="w-6 h-6" />
+                        )}
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-neutral-900 group-hover:text-primary-600 transition-colors">
@@ -193,14 +201,20 @@ export default function WorkerVerificationPage() {
 
               <div className="space-y-3">
                 <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Documents</p>
-                {[selectedVerification.cnicFront, selectedVerification.cnicBack].filter(Boolean).length > 0 ? (
+                {documents.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
-                    {[selectedVerification.cnicFront, selectedVerification.cnicBack].filter(Boolean).map((img, i) => (
-                      <div key={i} className="aspect-[3/2] rounded-2xl bg-neutral-100 border border-neutral-200 overflow-hidden relative group cursor-zoom-in">
-                        <button type="button" onClick={() => setDocumentViewer({ src: img, label: `CNIC ${i === 0 ? 'front' : 'back'}` })} className="h-full w-full">
-                          <img src={api.getImageUrl(img)} alt={`Document ${i + 1}`} className="w-full h-full object-contain bg-neutral-100" />
-                        </button>
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {documents.map((item) => (
+                      <div key={item.label} className="aspect-[3/2] rounded-2xl bg-neutral-100 border border-neutral-200 overflow-hidden relative group cursor-zoom-in">
+                        <a
+                          href={api.getImageUrl(item.src)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open ${item.label} in a new tab`}
+                          className="block h-full w-full"
+                        >
+                          <img src={api.getImageUrl(item.src)} alt={item.label} className="h-full w-full object-contain bg-neutral-100" />
+                        </a>
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                           <ExternalLink className="w-5 h-5 text-white" />
                         </div>
                       </div>
@@ -212,6 +226,11 @@ export default function WorkerVerificationPage() {
               </div>
 
               <div className="flex flex-col gap-3 pt-6">
+                {actionError && (
+                  <p role="alert" className="rounded-xl border border-error/20 bg-error-light p-3 text-sm text-error">
+                    {actionError}
+                  </p>
+                )}
                 <label htmlFor="rejection-reason" className="text-sm font-bold text-neutral-700">Note for worker when rejecting</label>
                 <textarea id="rejection-reason" value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={3} placeholder="Example: Upload a clear CNIC back image." className="w-full rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                 <button
@@ -231,16 +250,6 @@ export default function WorkerVerificationPage() {
                   Reject Application
                 </button>
               </div>
-              {documentViewer && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-navy-950/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={`${documentViewer.label} document`} onMouseDown={(event) => { if (event.target === event.currentTarget) setDocumentViewer(null); }}>
-                  <div className="relative flex max-h-[94vh] max-w-5xl items-center justify-center rounded-2xl bg-white p-2 shadow-2xl sm:p-4">
-                    <button type="button" onClick={() => setDocumentViewer(null)} aria-label="Close document preview" className="absolute right-3 top-3 z-10 rounded-full bg-navy-950 p-2.5 text-white shadow-lg transition hover:bg-primary focus:outline-none focus:ring-4 focus:ring-cyan-300">
-                      <X className="h-5 w-5" />
-                    </button>
-                    <img src={api.getImageUrl(documentViewer.src)} alt={documentViewer.label} className="max-h-[88vh] max-w-[calc(100vw-2rem)] rounded-xl object-contain sm:max-w-[85vw]" />
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="bg-neutral-50 rounded-[32px] border-2 border-dashed border-neutral-200 p-12 text-center flex flex-col items-center justify-center min-h-[400px]">

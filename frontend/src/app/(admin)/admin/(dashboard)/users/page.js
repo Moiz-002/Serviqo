@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import { InlineLoadError, SkeletonBlock } from '@/components/ui/LoadingStates';
 
 export default function UserManagementPage() {
@@ -102,7 +103,7 @@ export default function UserManagementPage() {
           />
         </div>
         <div className="flex items-center gap-3">
-          <select 
+          <BrandedSelect
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
             className="px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-500/20 focus:border-navy-500 transition-all text-neutral-600 font-medium"
@@ -110,15 +111,15 @@ export default function UserManagementPage() {
             <option value="all">All Roles</option>
             <option value="customer">Customers</option>
             <option value="worker">Workers</option>
-          </select>
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} aria-label="Filter by status" className="px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 font-medium">
+          </BrandedSelect>
+          <BrandedSelect value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} aria-label="Filter by status" className="px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 font-medium">
             <option value="all">All Statuses</option>
             <option value="active">Active</option>
             <option value="approved">Approved</option>
             <option value="pending">Pending</option>
             <option value="rejected">Rejected</option>
             <option value="inactive">Inactive</option>
-          </select>
+          </BrandedSelect>
         </div>
       </div>
 

@@ -1,6 +1,13 @@
+const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const Review = require('../models/Review');
 const { emitToUsers, notifySafely } = require('../services/realtime');
+
+const PUBLIC_JOB_FIELDS = 'title description category budgetRange urgency location status images totalBids createdAt';
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function validateJobInput({ title, description, category, budgetRange, urgency, city, area }) {
   const required = { title, description, category, budgetRange, urgency, city, area };
@@ -19,6 +26,91 @@ function validateJobInput({ title, description, category, budgetRange, urgency, 
     return 'Location fields are too long';
   }
   return null;
+}
+
+function toPublicJob(job) {
+  return {
+    _id: job._id,
+    title: job.title,
+    description: job.description,
+    category: job.category,
+    budgetRange: job.budgetRange,
+    urgency: job.urgency,
+    location: job.location,
+    status: job.status,
+    images: job.images || [],
+    totalBids: job.totalBids || 0,
+    createdAt: job.createdAt,
+  };
+}
+
+async function getPublicJobs(req, res) {
+  const { q, category, city, urgency, page = 1, limit = 12 } = req.query;
+  const pageNumber = Math.max(Number.parseInt(page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(Number.parseInt(limit, 10) || 12, 1), 50);
+  const filter = {};
+  const searchConditions = [];
+  const publicStatuses = ['open', 'active', 'completed', 'cancelled'];
+
+  if (typeof req.query.status === 'string' && publicStatuses.includes(req.query.status)) {
+    filter.status = req.query.status;
+  }
+
+  if (typeof category === 'string' && category.trim()) {
+    filter.category = new RegExp(`^${escapeRegExp(category.trim().slice(0, 100))}$`, 'i');
+  }
+  if (typeof city === 'string' && city.trim()) {
+    const locationSearch = new RegExp(escapeRegExp(city.trim().slice(0, 100)), 'i');
+    searchConditions.push({
+      $or: [{ 'location.city': locationSearch }, { 'location.area': locationSearch }],
+    });
+  }
+  if (typeof urgency === 'string' && urgency.trim()) {
+    const urgencyValue = urgency.trim().slice(0, 80);
+    const urgencyAliases = {
+      emergency: /^emergency$/i,
+      today: /^today$/i,
+      scheduled: /^scheduled$/i,
+      flexible: /^flexible$/i,
+    };
+    filter.urgency = urgencyAliases[urgencyValue.toLowerCase()]
+      || new RegExp(`^${escapeRegExp(urgencyValue)}$`, 'i');
+  }
+  if (typeof q === 'string' && q.trim()) {
+    const search = new RegExp(escapeRegExp(q.trim().slice(0, 100)), 'i');
+    searchConditions.push({
+      $or: [{ title: search }, { description: search }, { category: search }],
+    });
+  }
+  if (searchConditions.length) filter.$and = searchConditions;
+
+  const [jobs, total] = await Promise.all([
+    Job.find(filter)
+      .select(PUBLIC_JOB_FIELDS)
+      .sort({ createdAt: -1 })
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    Job.countDocuments(filter),
+  ]);
+
+  return res.json({
+    jobs: jobs.map(toPublicJob),
+    total,
+    page: pageNumber,
+    totalPages: Math.ceil(total / pageSize),
+  });
+}
+
+async function getPublicJobById(req, res) {
+  if (!mongoose.Types.ObjectId.isValid(req.params.jobId)) {
+    return res.status(400).json({ error: 'Invalid job ID' });
+  }
+  const job = await Job.findById(req.params.jobId)
+    .select(PUBLIC_JOB_FIELDS)
+    .lean();
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json({ job: toPublicJob(job) });
 }
 
 async function createJob(req, res) {
@@ -189,4 +281,13 @@ async function markJobComplete(req, res) {
   return res.json({ message: 'Job marked as completed', job: completedJob });
 }
 
-module.exports = { createJob, getJobs, getJobById, updateJob, deleteJob, markJobComplete };
+module.exports = {
+  createJob,
+  getJobs,
+  getPublicJobs,
+  getPublicJobById,
+  getJobById,
+  updateJob,
+  deleteJob,
+  markJobComplete,
+};

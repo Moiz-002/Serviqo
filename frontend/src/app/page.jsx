@@ -25,21 +25,33 @@ import {
   Star,
   MapPin,
   Search,
+  SlidersHorizontal,
   ChevronRight,
   Phone,
   Mail,
   ArrowUpRight,
+  BriefcaseBusiness,
   Cpu,
   User,
   LogOut,
   LayoutDashboard,
   PlusSquare,
 } from 'lucide-react';
-import { FaTwitter, FaLinkedin, FaInstagram, FaFacebook } from 'react-icons/fa';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import * as api from '@/lib/api';
+import { getJobCategoryIcon } from '@/config/job-category-icons';
+import { CATEGORIES, CITIES } from '@/config/worker-constants';
+
+const AuthSkeleton = () => (
+  <div className="flex items-center gap-4 animate-pulse">
+    <div className="w-16 h-4 bg-navy-100 rounded-full" />
+    <div className="w-24 h-10 bg-navy-100 rounded-xl" />
+    <div className="w-24 h-10 bg-navy-100 rounded-xl" />
+  </div>
+);
 
 // ============================================================================
 // NAVBAR COMPONENT
@@ -64,7 +76,7 @@ const Navbar = ({ user, loading, onLogout }) => {
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) setIsOpen(false);
+      if (window.innerWidth >= 1280) setIsOpen(false);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -87,6 +99,7 @@ const Navbar = ({ user, loading, onLogout }) => {
 
   const navLinks = [
     { label: 'How It Works', href: '#how-it-works' },
+    { label: 'Find Jobs', href: '/jobs' },
     { label: 'Services', href: '#services' },
     { label: 'For Professionals', href: '#for-professionals' },
   ];
@@ -99,22 +112,14 @@ const Navbar = ({ user, loading, onLogout }) => {
   };
 
   const getPostJobUrl = () => {
-    if (!user) return '/login?intendedUrl=/customer/post-job';
+    if (!user) return '/login?role=customer&intendedUrl=%2Fcustomer%2Fpost-job';
     if (user.role === 'worker') return '/worker/dashboard';
+    if (user.role === 'admin') return '/admin/dashboard';
     return '/customer/post-job';
   };
 
   const scrolledClasses = 'bg-white/95 backdrop-blur-md border-b border-navy-100 shadow-md py-3';
-  const transparentClasses = 'bg-transparent py-5 max-md:bg-white max-md:py-3 max-md:border-b max-md:border-navy-100';
-
-  // Loading Skeleton for Auth Area
-  const AuthSkeleton = () => (
-    <div className="flex items-center gap-4 animate-pulse">
-      <div className="w-16 h-4 bg-navy-100 rounded-full" />
-      <div className="w-24 h-10 bg-navy-100 rounded-xl" />
-      <div className="w-24 h-10 bg-navy-100 rounded-xl" />
-    </div>
-  );
+  const transparentClasses = 'bg-transparent py-5 max-xl:bg-white max-xl:py-3 max-xl:border-b max-xl:border-navy-100';
 
   return (
     <nav
@@ -122,7 +127,7 @@ const Navbar = ({ user, loading, onLogout }) => {
         isScrolled || isOpen ? scrolledClasses : transparentClasses
       }`}
     >
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between relative pointer-events-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 relative pointer-events-auto">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group cursor-pointer relative z-[110]">
           <img src="/serviqo_favicon.png" alt="Serviqo Logo" className="w-10 h-10 object-contain rounded-2xl" />
@@ -132,21 +137,24 @@ const Navbar = ({ user, loading, onLogout }) => {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden xl:flex items-center gap-6 2xl:gap-8">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-navy-600 font-bold hover:text-cyan-600 transition-colors relative group cursor-pointer"
-            >
-              {link.label}
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-500 transition-all group-hover:w-full" />
-            </a>
+            link.href.startsWith('#') ? (
+              <a key={link.href} href={link.href} className="text-navy-600 font-bold hover:text-cyan-600 transition-colors relative group cursor-pointer">
+                {link.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-500 transition-all group-hover:w-full" />
+              </a>
+            ) : (
+              <Link key={link.href} href={link.href} className="text-navy-600 font-bold hover:text-cyan-600 transition-colors relative group cursor-pointer">
+                {link.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-500 transition-all group-hover:w-full" />
+              </Link>
+            )
           ))}
         </div>
 
         {/* Desktop CTA Buttons / Profile */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden xl:flex items-center gap-3 2xl:gap-4">
           {loading ? (
             <AuthSkeleton />
           ) : user ? (
@@ -245,7 +253,7 @@ const Navbar = ({ user, loading, onLogout }) => {
 
         {/* Mobile Menu Toggle */}
         <button
-          className="md:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer relative z-[110]"
+          className="xl:hidden p-3 text-navy-900 hover:bg-navy-50 rounded-xl transition-colors cursor-pointer relative z-[110]"
           onClick={() => setIsOpen((v) => !v)}
           type="button"
           aria-label="Toggle menu"
@@ -257,20 +265,21 @@ const Navbar = ({ user, loading, onLogout }) => {
 
       {/* Mobile Menu */}
       <div 
-        className={`md:hidden absolute top-full left-0 w-full bg-white border-t border-navy-100 shadow-2xl transition-all duration-300 transform ${
+        className={`xl:hidden absolute top-full left-0 w-full bg-white border-t border-navy-100 shadow-2xl transition-all duration-300 transform ${
           isOpen ? 'translate-y-0 opacity-100 visible pointer-events-auto' : '-translate-y-4 opacity-0 invisible pointer-events-none'
         }`}
       >
         <div className="container mx-auto px-4 py-6 space-y-4">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="block py-3 text-lg font-bold text-navy-600 border-b border-navy-50 cursor-pointer"
-              onClick={() => setIsOpen(false)}
-            >
-              {link.label}
-            </a>
+            link.href.startsWith('#') ? (
+              <a key={link.href} href={link.href} className="block py-3 text-lg font-bold text-navy-600 border-b border-navy-50 cursor-pointer" onClick={() => setIsOpen(false)}>
+                {link.label}
+              </a>
+            ) : (
+              <Link key={link.href} href={link.href} className="block py-3 text-lg font-bold text-navy-600 border-b border-navy-50 cursor-pointer" onClick={() => setIsOpen(false)}>
+                {link.label}
+              </Link>
+            )
           ))}
           <div className="pt-4 space-y-3">
             {loading ? (
@@ -343,24 +352,24 @@ const HeroSection = () => {
 
   const handleSearch = () => {
     const q = (query || '').trim();
-    const loc = (location || '').trim();
+    const city = location.trim();
     const params = new URLSearchParams();
-    if (q) params.set('query', q);
-    if (loc) params.set('location', loc);
+    if (q) params.set('q', q);
+    if (city) params.set('city', city);
     const qs = params.toString();
-    router.push(`/workers${qs ? `?${qs}` : ''}`);
+    router.push(`/jobs${qs ? `?${qs}` : ''}`);
   };
 
   return (
-    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-neutral-50">
+    <section className="relative overflow-hidden bg-neutral-50 pt-28 pb-14 sm:pt-32 sm:pb-20 xl:pt-48 xl:pb-32">
       {/* Decorative Background Glows */}
       <div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 w-1/2 h-full bg-cyan-50/50 blur-[120px] rounded-full -mr-64 -z-10" />
       <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 w-1/3 h-full bg-navy-50/50 blur-[100px] rounded-full -ml-32 -z-10" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="grid grid-cols-1 items-center gap-10 sm:gap-12 xl:grid-cols-2 xl:gap-16">
           {/* Left Column */}
-          <div className="space-y-10">
+          <div className="min-w-0 space-y-8 sm:space-y-10">
             {/* Eyebrow */}
             <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white border border-cyan-100 shadow-sm animate-fade-in">
               <div className="flex h-2 w-2 relative">
@@ -374,19 +383,19 @@ const HeroSection = () => {
 
             {/* Headline */}
             <div className="space-y-4">
-              <h1 className="text-5xl sm:text-6xl lg:text-8xl font-black text-navy-900 leading-[1.1] tracking-tighter">
-                Skilled Pros,
-                <span className="block text-gradient-primary">At Your Door.</span>
+              <h1 className="text-4xl font-black leading-[1.08] tracking-tighter text-navy-900 sm:text-5xl md:text-6xl xl:text-8xl">
+                Good work
+                <span className="block text-gradient-primary">starts here.</span>
               </h1>
-              <p className="text-xl text-navy-600 max-w-lg leading-relaxed font-medium">
-                The intelligent way to hire home services in Pakistan. Get instant quotes, AI-matched workers, and transparent PKR pricing.
+              <p className="max-w-lg text-lg font-medium leading-relaxed text-navy-600 sm:text-xl">
+                Find real home-service opportunities or connect with verified professionals. Clear job details, transparent budgets, and a marketplace built for Pakistan.
               </p>
             </div>
 
             {/* Enhanced Search Bar */}
-            <div className="relative group max-w-2xl">
-              <div className="flex flex-wrap bg-white rounded-3xl p-3 shadow-2xl border border-navy-100 gap-3 group-hover:border-cyan-200 transition-all">
-                <div className="flex-1 min-w-[280px] flex items-center gap-3 px-4 py-4 bg-neutral-50 rounded-2xl border border-transparent focus-within:border-cyan-500 transition-all">
+            <div className="group relative w-full max-w-2xl">
+              <div className="grid grid-cols-1 gap-3 rounded-2xl border border-navy-100 bg-white p-2.5 shadow-xl transition-all group-hover:border-cyan-200 sm:grid-cols-2 sm:rounded-3xl sm:p-3 sm:shadow-2xl">
+                <div className="search-field flex min-w-0 items-center gap-3 rounded-xl border border-navy-100 bg-neutral-50 px-3 py-3 transition-colors focus-within:border-cyan-600 sm:rounded-2xl sm:px-4 sm:py-4">
                   <Search className="w-5 h-5 text-navy-500 shrink-0" />
                   <input
                     type="text"
@@ -394,41 +403,60 @@ const HeroSection = () => {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base border-0"
+                    className="w-full min-w-0 border-0 bg-transparent text-sm font-bold text-navy-900 outline-none placeholder:text-navy-400 sm:text-base"
                   />
                 </div>
-                <div className="flex-1 min-w-[200px] flex items-center gap-3 px-4 py-4 bg-neutral-50 rounded-2xl border border-transparent focus-within:border-cyan-500 transition-all">
+                <div className="search-field flex min-w-0 items-center gap-3 rounded-xl border border-navy-100 bg-neutral-50 px-3 py-3 transition-colors focus-within:border-cyan-600 sm:rounded-2xl sm:px-4 sm:py-4">
                   <MapPin className="w-5 h-5 text-navy-500 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Enter city or area"
+                  <BrandedSelect
+                    aria-label="Filter jobs by city"
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                    className="w-full bg-transparent outline-none font-bold text-navy-900 placeholder:text-navy-400 text-base border-0"
-                  />
+                    onChange={(event) => setLocation(event.target.value)}
+                    containerClassName="flex-1"
+                    className="min-h-10 min-w-0 flex-1 bg-transparent text-sm font-bold text-navy-900 sm:text-base"
+                  >
+                    <option value="">All cities</option>
+                    {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
+                  </BrandedSelect>
                 </div>
-                <button onClick={handleSearch} className="w-full sm:w-auto sm:px-10 py-4 bg-navy-600 text-white font-black rounded-2xl hover:bg-navy-700 shadow-lg hover:shadow-cyan-100 transition-all active:scale-95 cursor-pointer border-0">
-                  Find Help
+                <button onClick={handleSearch} className="w-full rounded-xl border-0 bg-navy-600 px-6 py-3.5 font-black text-white shadow-lg transition-all hover:bg-navy-700 hover:shadow-cyan-100 active:scale-[0.99] sm:col-span-2 sm:w-auto sm:justify-self-start sm:rounded-2xl sm:px-10 sm:py-4">
+                  Find Jobs
                 </button>
               </div>
               
               {/* Popular Categories Chips */}
               <div className="mt-6 flex flex-wrap gap-3 items-center">
                 <span className="text-sm font-bold text-navy-400 uppercase tracking-wider">Popular:</span>
-                {['Electrician', 'Plumber', 'AC Repair', 'Cleaning'].map((cat) => (
-                  <button key={cat} className="px-4 py-1.5 bg-white border border-navy-100 rounded-full text-sm font-bold text-navy-600 hover:border-cyan-500 hover:text-cyan-600 transition-all cursor-pointer">
-                    {cat}
+                {[
+                  { label: 'Electrical', category: 'Electrical' },
+                  { label: 'Plumbing', category: 'Plumbing' },
+                  { label: 'AC & HVAC', category: 'AC & HVAC' },
+                  { label: 'Cleaning', category: 'Cleaning' },
+                ].map(({ label, category }) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => router.push(`/jobs?category=${encodeURIComponent(category)}`)}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white border border-navy-100 rounded-full text-sm font-bold text-navy-600 hover:border-cyan-500 hover:text-cyan-600 transition-all cursor-pointer"
+                  >
+                    {(() => {
+                      const CategoryIcon = getJobCategoryIcon(category);
+                      return <CategoryIcon aria-hidden="true" className="h-4 w-4" />;
+                    })()}
+                    {label}
                   </button>
                 ))}
               </div>
+              <Link href="/jobs" className="inline-flex items-center gap-2 text-sm font-extrabold text-navy-700 hover:text-cyan-700">
+                Browse all jobs <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
 
           {/* Right Column - Visual Stack */}
-          <div className="relative h-[500px] lg:h-[700px]">
+          <div className="relative h-[360px] min-w-0 sm:h-[440px] xl:h-[700px]">
             {/* Main Visual Image */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] rounded-[40px] overflow-hidden shadow-2xl border-8 border-white group">
+            <div className="group absolute left-1/2 top-1/2 h-[86%] w-[88%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] border-4 border-white shadow-2xl sm:rounded-[40px] sm:border-8 xl:h-[85%] xl:w-[85%]">
               <img
                 src="/hero_image.png"
                 alt="Expert Professional"
@@ -438,9 +466,9 @@ const HeroSection = () => {
             </div>
 
             {/* Floating Card: AI Matching */}
-            <div className="absolute top-10 right-0 bg-white rounded-3xl shadow-2xl p-6 border border-cyan-100 animate-float max-w-[240px]">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-cyan-50 rounded-2xl flex items-center justify-center">
+            <div className="absolute right-0 top-0 max-w-[190px] animate-float rounded-2xl border border-cyan-100 bg-white p-3 shadow-xl sm:top-[-10px] sm:max-w-[240px] sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+              <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 sm:h-12 sm:w-12 sm:rounded-2xl">
                   <Cpu className="w-6 h-6 text-cyan-600" />
                 </div>
                 <div>
@@ -460,10 +488,10 @@ const HeroSection = () => {
             </div>
 
             {/* Floating Card: Trust Score */}
-            <div className="absolute bottom-10 left-0 bg-white rounded-3xl shadow-2xl p-6 border border-navy-100 animate-float-delayed max-w-[240px]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full border-4 border-accent-500 overflow-hidden">
-                  <img src="man_image.png" className="w-full h-full object-cover" />
+            <div className="absolute bottom-0 left-0 max-w-[190px] animate-float-delayed rounded-2xl border border-navy-100 bg-white p-3 shadow-xl sm:bottom-10 sm:max-w-[240px] sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+              <div className="mb-3 flex items-center gap-2 sm:mb-4 sm:gap-3">
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border-4 border-accent-500 sm:h-10 sm:w-10">
+                  <img src="man_image.png" alt="Serviqo professional profile" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <p className="text-sm font-black text-navy-900">Ahmed Hassan</p>
@@ -483,6 +511,131 @@ const HeroSection = () => {
             <div aria-hidden="true" className="pointer-events-none absolute -top-10 -left-10 w-32 h-32 border-4 border-cyan-200 rounded-full opacity-20" />
             <div aria-hidden="true" className="pointer-events-none absolute bottom-20 -right-10 w-48 h-48 bg-navy-600 rounded-full opacity-5" />
           </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================================
+// LIVE JOBS
+// ============================================================================
+const FeaturedJobsSection = () => {
+  const router = useRouter();
+  const [category, setCategory] = useState('');
+  const [city, setCity] = useState('');
+  const [jobs, setJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [jobsError, setJobsError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getPublicJobs('limit=3&status=open')
+      .then((data) => {
+        if (!cancelled) setJobs(data.jobs || []);
+      })
+      .catch((error) => {
+        if (!cancelled) setJobsError(error.message || 'Unable to load current job requests.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingJobs(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const browseFilteredJobs = (event) => {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (city) params.set('city', city);
+    router.push(`/jobs${params.size ? `?${params.toString()}` : ''}`);
+  };
+
+  return (
+    <section className="bg-white py-20 sm:py-24" aria-labelledby="featured-jobs-heading">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-cyan-800">
+              <BriefcaseBusiness className="h-4 w-4" /> Live from the marketplace
+            </div>
+            <h2 id="featured-jobs-heading" className="mt-5 text-3xl font-black tracking-tight text-navy-950 sm:text-5xl">
+              Find work that fits your skills.
+            </h2>
+            <p className="mt-3 text-base leading-7 text-navy-600">
+              Browse current customer requests. Create an account to submit a proposal or post your own job.
+            </p>
+          </div>
+          <form onSubmit={browseFilteredJobs} className="grid w-full gap-3 rounded-2xl border border-navy-100 bg-neutral-50 p-3 sm:grid-cols-[1fr_1fr_auto] lg:max-w-2xl">
+            <label className="flex min-h-12 items-center gap-2 rounded-xl border border-navy-100 bg-white px-3">
+              <SlidersHorizontal className="h-4 w-4 shrink-0 text-navy-400" />
+              <span className="sr-only">Filter featured jobs by service</span>
+              <BrandedSelect aria-label="Filter featured jobs by service" value={category} onChange={(event) => setCategory(event.target.value)} getOptionIcon={getJobCategoryIcon} containerClassName="flex-1" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-navy-700">
+                <option value="">All services</option>
+                {CATEGORIES.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+              </BrandedSelect>
+            </label>
+            <label className="flex min-h-12 items-center gap-2 rounded-xl border border-navy-100 bg-white px-3">
+              <MapPin className="h-4 w-4 shrink-0 text-navy-400" />
+              <span className="sr-only">Filter featured jobs by city</span>
+              <BrandedSelect aria-label="Filter featured jobs by city" value={city} onChange={(event) => setCity(event.target.value)} containerClassName="flex-1" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-navy-700">
+                <option value="">All cities</option>
+                {CITIES.map((item) => <option key={item} value={item}>{item}</option>)}
+              </BrandedSelect>
+            </label>
+            <button type="submit" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-navy-900 px-5 text-sm font-extrabold text-white transition hover:bg-navy-700">
+              Filter jobs <ArrowRight className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
+
+        {loadingJobs ? (
+          <div className="mt-9 grid gap-4 lg:grid-cols-3" aria-label="Loading latest jobs">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="animate-pulse rounded-3xl border border-navy-100 p-6">
+                <div className="h-5 w-24 rounded bg-neutral-100" />
+                <div className="mt-5 h-6 w-3/4 rounded bg-neutral-100" />
+                <div className="mt-3 h-4 w-full rounded bg-neutral-100" />
+                <div className="mt-2 h-4 w-2/3 rounded bg-neutral-100" />
+              </div>
+            ))}
+          </div>
+        ) : jobsError ? (
+          <p role="alert" className="mt-8 rounded-2xl border border-red-100 bg-red-50 p-5 text-sm text-red-700">{jobsError}</p>
+        ) : jobs.length ? (
+          <div className="mt-9 grid gap-4 lg:grid-cols-3">
+            {jobs.map((job) => {
+              const CategoryIcon = getJobCategoryIcon(job.category);
+              return <article key={job._id} className="flex flex-col rounded-3xl border border-navy-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1 text-xs font-extrabold text-cyan-800">
+                    <CategoryIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                    {job.category}
+                  </span>
+                  <span className="text-xs font-semibold text-navy-400">{job.location?.city || 'Pakistan'}</span>
+                </div>
+                <h3 className="mt-4 text-lg font-extrabold leading-snug text-navy-950">{job.title}</h3>
+                <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-navy-600">{job.description}</p>
+                <div className="mt-5 flex items-center justify-between border-t border-navy-50 pt-4">
+                  <span className="text-sm font-extrabold text-navy-800">{job.budgetRange}</span>
+                  <Link href={`/jobs/${job._id}`} className="inline-flex items-center gap-1.5 text-sm font-extrabold text-cyan-800 hover:text-cyan-600">
+                    View job <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </article>;
+            })}
+          </div>
+        ) : (
+          <div className="mt-9 rounded-3xl border border-dashed border-navy-200 bg-neutral-50 px-6 py-10 text-center">
+            <p className="font-bold text-navy-800">No job requests yet.</p>
+            <p className="mt-1 text-sm text-navy-500">Check back soon or explore service categories below.</p>
+          </div>
+        )}
+
+        <div className="mt-8 text-center">
+          <Link href="/jobs" className="inline-flex items-center gap-2 rounded-xl border border-navy-200 px-5 py-3 text-sm font-extrabold text-navy-800 transition hover:border-cyan-400 hover:text-cyan-800">
+            Explore all jobs <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>
@@ -741,8 +894,8 @@ const ServiceCategoriesSection = () => {
               From quick fixes to major renovations, find verified professionals who get the job done right.
             </p>
           </div>
-          <Link href="#services" className="px-8 py-4 bg-white border-2 border-navy-100 rounded-2xl font-bold text-navy-900 hover:border-cyan-500 hover:text-cyan-600 transition-all flex items-center gap-2 group shadow-sm cursor-pointer">
-            View All Services
+          <Link href="/jobs" className="px-8 py-4 bg-white border-2 border-navy-100 rounded-2xl font-bold text-navy-900 hover:border-cyan-500 hover:text-cyan-600 transition-all flex items-center gap-2 group shadow-sm cursor-pointer">
+            Explore Open Jobs
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
@@ -754,7 +907,7 @@ const ServiceCategoriesSection = () => {
                 return (
                   <Link
                     key={idx}
-                    href={`/workers?category=${encodeURIComponent(cat.name)}`}
+                    href={`/jobs?category=${encodeURIComponent(cat.name)}`}
                     className="group relative h-[400px] rounded-[32px] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer"
                   >
                 {/* Background Image */}
@@ -778,7 +931,7 @@ const ServiceCategoriesSection = () => {
                     {cat.description}
                   </p>
                   <div className="mt-6 flex items-center gap-2 text-cyan-400 font-bold group-hover:text-white transition-colors">
-                    <span>Hire Professional</span>
+                    <span>Browse related jobs</span>
                     <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                   </div>
                 </div>
@@ -849,7 +1002,7 @@ const WhyServiqoSection = () => {
   ];
 
   return (
-    <section className="py-24 sm:py-32 bg-neutral-50 overflow-hidden">
+    <section id="why-serviqo" className="py-24 sm:py-32 bg-neutral-50 overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16 sm:mb-20">
@@ -863,7 +1016,7 @@ const WhyServiqoSection = () => {
             Intelligence Meets <span className="text-gradient-primary">Integrity</span>
           </h2>
           <p className="text-lg text-navy-600 mt-6 max-w-2xl mx-auto font-medium leading-relaxed">
-            We've reimagined home services from the ground up, using AI to ensure fairness and quality for everyone.
+            We&apos;ve reimagined home services from the ground up, using AI to ensure fairness and quality for everyone.
           </p>
         </div>
 
@@ -964,7 +1117,7 @@ const ForProfessionalsSection = () => {
                 <Link href="/signup?role=worker" className="px-10 py-5 bg-cyan-500 text-navy-900 font-black rounded-2xl hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all transform hover:-translate-y-1 cursor-pointer">
                   Join as a Professional
                 </Link>
-                <Link href="/success-stories" className="px-10 py-5 border-2 border-white/20 text-white font-black rounded-2xl hover:bg-white/10 transition-all cursor-pointer">
+                <Link href="#testimonials" className="px-10 py-5 border-2 border-white/20 text-white font-black rounded-2xl hover:bg-white/10 transition-all cursor-pointer">
                   Learn Success Stories
                 </Link>
             </div>
@@ -1055,7 +1208,7 @@ const TestimonialsSection = () => {
   ];
 
   return (
-    <section className="py-24 sm:py-32 bg-white overflow-hidden">
+    <section id="testimonials" className="py-24 sm:py-32 bg-white overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16 sm:mb-20">
@@ -1094,7 +1247,7 @@ const TestimonialsSection = () => {
 
               {/* Quote Text */}
               <p className="text-lg text-navy-900 font-medium leading-relaxed mb-10 italic">
-                "{testimonial.quote}"
+                &quot;{testimonial.quote}&quot;
               </p>
 
               {/* Profile */}
@@ -1125,13 +1278,14 @@ const TestimonialsSection = () => {
 // ============================================================================
 const CTABannerSection = ({ user }) => {
   const getPostJobUrl = () => {
-    if (!user) return '/login?intendedUrl=/customer/post-job';
+    if (!user) return '/login?role=customer&intendedUrl=%2Fcustomer%2Fpost-job';
     if (user.role === 'worker') return '/worker/dashboard';
+    if (user.role === 'admin') return '/admin/dashboard';
     return '/customer/post-job';
   };
 
   const getJoinAsProUrl = () => {
-    if (!user) return '/signup';
+    if (!user) return '/signup?role=worker';
     if (user.role === 'worker') return '/worker/dashboard';
     return '/customer/dashboard';
   };
@@ -1154,7 +1308,7 @@ const CTABannerSection = ({ user }) => {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-5xl sm:text-6xl lg:text-8xl font-black text-white mb-8 tracking-tighter leading-tight">
+          <h2 className="text-5xl sm:text-6xl lg:text-8xl font-black !text-white mb-8 tracking-tighter leading-tight">
             Ready to Experience <br /> the <span className="text-cyan-400">Future?</span>
           </h2>
           <p className="text-xl sm:text-2xl text-navy-100 mb-12 font-medium leading-relaxed">
@@ -1163,7 +1317,7 @@ const CTABannerSection = ({ user }) => {
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link href={getPostJobUrl()} className="px-12 py-5 bg-cyan-500 text-navy-900 font-black rounded-2xl hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all transform hover:-translate-y-1">
-              Post a Job — It's Free
+              Post a Job — It&apos;s Free
             </Link>
             <Link href={getJoinAsProUrl()} className="px-12 py-5 border-2 border-white text-white font-black rounded-2xl hover:bg-white/10 transition-all">
               Join as a Professional
@@ -1206,25 +1360,9 @@ const FooterSection = () => {
             <p className="text-lg text-navy-200 font-medium leading-relaxed max-w-sm">
               The AI-powered marketplace reimagining home services for the modern world. Intelligence meets integrity.
             </p>
-            <div className="flex gap-4">
-              {[
-                { icon: FaTwitter, href: '#' },
-                { icon: FaLinkedin, href: '#' },
-                { icon: FaInstagram, href: '#' },
-                { icon: FaFacebook, href: '#' },
-              ].map((social, idx) => {
-                const Icon = social.icon;
-                return (
-                  <a
-                    key={idx}
-                    href={social.href}
-                    className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-cyan-500 hover:text-white transition-all cursor-pointer border border-white/10"
-                  >
-                    <Icon className="w-6 h-6 hover:text-white" />
-                  </a>
-                );
-              })}
-            </div>
+            <a href="mailto:help@serviqo.com" className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white transition hover:bg-cyan-500">
+              <Mail className="h-5 w-5" /> Contact Serviqo
+            </a>
           </div>
 
           {/* Links Columns */}
@@ -1232,9 +1370,14 @@ const FooterSection = () => {
             <div>
               <h4 className="!text-white font-black text-lg mb-8 uppercase tracking-widest">Platform</h4>
               <ul className="space-y-4 text-navy-100 font-bold">
-                {['Post a Job', 'Browse Experts', 'How It Works', 'Safety First'].map((item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors cursor-pointer">{item}</a>
+                {[
+                  { label: 'Post a Job', href: '/login?role=customer&intendedUrl=%2Fcustomer%2Fpost-job' },
+                  { label: 'Browse Jobs', href: '/jobs' },
+                  { label: 'How It Works', href: '#how-it-works' },
+                  { label: 'Safety & Support', href: 'mailto:help@serviqo.com?subject=Serviqo%20Safety%20and%20Support' },
+                ].map((item) => (
+                  <li key={item.label}>
+                    {item.href.startsWith('/') ? <Link href={item.href} className="hover:text-white transition-colors">{item.label}</Link> : <a href={item.href} className="hover:text-white transition-colors">{item.label}</a>}
                   </li>
                 ))}
               </ul>
@@ -1242,9 +1385,14 @@ const FooterSection = () => {
             <div>
               <h4 className="!text-white font-black text-lg mb-8 uppercase tracking-widest">Company</h4>
               <ul className="space-y-4 text-navy-100 font-bold">
-                {['Our Mission', 'Success Stories', 'Partnerships', 'Newsroom'].map((item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors cursor-pointer">{item}</a>
+                {[
+                  { label: 'Our Mission', href: '#why-serviqo' },
+                  { label: 'Success Stories', href: '#testimonials' },
+                  { label: 'Partnerships', href: 'mailto:help@serviqo.com?subject=Serviqo%20Partnership' },
+                  { label: 'News & Updates', href: 'mailto:help@serviqo.com?subject=Serviqo%20News%20and%20Updates' },
+                ].map((item) => (
+                  <li key={item.label}>
+                    <a href={item.href} className="hover:text-white transition-colors">{item.label}</a>
                   </li>
                 ))}
               </ul>
@@ -1254,9 +1402,9 @@ const FooterSection = () => {
               <ul className="space-y-4 text-navy-100 font-bold">
                 <li><a href="mailto:help@serviqo.com" className="hover:text-white transition-colors">Help Center</a></li>
                 <li><a href="mailto:help@serviqo.com?subject=Serviqo%20Trust%20and%20Safety" className="hover:text-white transition-colors">Trust Center</a></li>
-                <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Use</Link></li>
-                <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                <li><Link href="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link></li>
+                <li><a href="mailto:help@serviqo.com?subject=Serviqo%20Terms%20of%20Use" className="hover:text-white transition-colors">Terms of Use questions</a></li>
+                <li><a href="mailto:help@serviqo.com?subject=Serviqo%20Privacy" className="hover:text-white transition-colors">Privacy questions</a></li>
+                <li><a href="mailto:help@serviqo.com?subject=Serviqo%20Cookies" className="hover:text-white transition-colors">Cookie questions</a></li>
               </ul>
             </div>
           </div>
@@ -1321,6 +1469,7 @@ export default function LandingPage() {
     <main className="min-h-screen bg-white">
       <Navbar user={user} loading={loading} onLogout={handleLogout} />
       <HeroSection />
+      <FeaturedJobsSection />
       <SocialProofBar />
       <HowItWorksSection />
       <ServiceCategoriesSection />

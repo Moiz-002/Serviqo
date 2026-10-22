@@ -322,9 +322,18 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* ============================================================================
-   CUSTOM SCROLLBAR (webkit browsers)
-   ============================================================================ */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+.branded-select-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 212, 184, 0.2);
+}
+
+/* CUSTOM SCROLLBAR (webkit browsers) */
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

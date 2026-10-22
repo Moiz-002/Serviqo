@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { CATEGORIES, CITIES, BUDGET_RANGES, URGENCY_LEVELS } from '@/config/job-constants';
 import FormField from '@/components/ui/FormField';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import FileUpload from '@/components/ui/FileUpload';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -249,14 +250,14 @@ export default function PostJobPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField label="Select City" required>
-                  <select
+                  <BrandedSelect
                     value={state.city}
                     onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'city', value: e.target.value })}
                     className="w-full px-5 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:border-primary-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">Choose city</option>
                     {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  </BrandedSelect>
                 </FormField>
 
                 <FormField label="Area / Neighborhood" required>

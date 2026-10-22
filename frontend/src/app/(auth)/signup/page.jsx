@@ -127,6 +127,18 @@ export default function SignupPage() {
   const router = useRouter();
   const [state, dispatch] = useReducer(signupReducer, initialState);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedRole = params.get('role');
+    const intendedUrl = params.get('intendedUrl');
+    if (requestedRole === 'customer' || requestedRole === 'worker') {
+      dispatch({ type: 'SET_FIELD', field: 'role', value: requestedRole });
+    }
+    if (intendedUrl?.startsWith('/') && !intendedUrl.startsWith('//')) {
+      sessionStorage.setItem('signupIntendedUrl', intendedUrl);
+    }
+  }, []);
+
   const handleFieldChange = (field, value) => {
     dispatch({ type: 'SET_FIELD', field, value });
     dispatch({ type: 'SET_ERROR', field, error: null });
@@ -279,7 +291,9 @@ export default function SignupPage() {
         }
         router.push('/onboarding');
       } else {
-        router.push('/customer/dashboard');
+        const intendedUrl = sessionStorage.getItem('signupIntendedUrl');
+        sessionStorage.removeItem('signupIntendedUrl');
+        router.push(intendedUrl?.startsWith('/customer/') ? intendedUrl : '/customer/dashboard');
       }
     } catch (err) {
       dispatch({ type: 'SET_ERROR', field: 'otp', error: err.message || 'Invalid code.' });
@@ -398,7 +412,7 @@ const StepVerify = ({ state, handleOtpComplete, handleResend }) => {
 
       <div className="space-y-1">
         <h2 className="text-2xl font-bold text-text-primary">Verify Your Phone</h2>
-        <p className="text-sm text-text-secondary">We've sent a 6-digit code to</p>
+        <p className="text-sm text-text-secondary">We&apos;ve sent a 6-digit code to</p>
         <p className="text-sm font-semibold text-text-brand">{maskedPhone}</p>
       </div>
 
@@ -429,7 +443,7 @@ const StepVerify = ({ state, handleOtpComplete, handleResend }) => {
       </div>
 
       <p className="text-xs text-text-secondary border-t border-border pt-4">
-        Didn't receive a code? Check your SMS or contact support.
+        Didn&apos;t receive a code? Check your SMS or contact support.
       </p>
     </div>
   );
@@ -500,7 +514,7 @@ const Step1 = ({ state, handleFieldChange }) => {
             </div>
           </div>
           <p className="text-xs text-text-secondary mt-1.5">
-            We'll send a 6-digit OTP to this number for verification.
+            We&apos;ll send a 6-digit OTP to this number for verification.
           </p>
           {state.errors.phone && (
             <p className="text-sm text-error mt-1 flex items-center gap-1">

@@ -37,6 +37,7 @@ function buildAvailability(workingDays, from, to) {
   );
 }
 import FormField from '@/components/ui/FormField';
+import BrandedSelect from '@/components/ui/BrandedSelect';
 import TagInput from '@/components/ui/TagInput';
 import FileUpload from '@/components/ui/FileUpload';
 import { InlineLoadError, PageDataSkeleton } from '@/components/ui/LoadingStates';
@@ -315,19 +316,13 @@ const Step1Profile = ({ state, dispatch, onNext }) => {
             error={errors.city}
             htmlFor="city"
           >
-            <select
+            <BrandedSelect
               id="city"
               value={state.city}
               onChange={(e) =>
                 dispatch({ type: 'SET_FIELD', field: 'city', value: e.target.value })
               }
-              className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233D4F8A' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                paddingRight: '36px',
-              }}
+              className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
             >
               <option value="">Select city</option>
               {CITIES.map((c) => (
@@ -335,7 +330,7 @@ const Step1Profile = ({ state, dispatch, onNext }) => {
                   {c}
                 </option>
               ))}
-            </select>
+            </BrandedSelect>
           </FormField>
 
           <FormField
@@ -361,19 +356,13 @@ const Step1Profile = ({ state, dispatch, onNext }) => {
             error={errors.yearsExperience}
             htmlFor="experience"
           >
-            <select
+            <BrandedSelect
               id="experience"
               value={state.yearsExperience}
               onChange={(e) =>
                 dispatch({ type: 'SET_FIELD', field: 'yearsExperience', value: e.target.value })
               }
-              className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233D4F8A' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                paddingRight: '36px',
-              }}
+              className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
             >
               <option value="">Select experience</option>
               <option value="less-1">Less than 1 year</option>
@@ -381,7 +370,7 @@ const Step1Profile = ({ state, dispatch, onNext }) => {
               <option value="3-5">3–5 years</option>
               <option value="6-10">6–10 years</option>
               <option value="10">10+ years</option>
-            </select>
+            </BrandedSelect>
           </FormField>
 
           <FormField
@@ -558,7 +547,7 @@ const Step2Skills = ({ state, dispatch, onNext, onBack }) => {
                       placeholder="Issued By"
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
                     />
-                    <select
+                    <BrandedSelect
                       value={cert.year}
                       onChange={(e) =>
                         dispatch({
@@ -568,13 +557,7 @@ const Step2Skills = ({ state, dispatch, onNext, onBack }) => {
                           value: parseInt(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233D4F8A' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 10px center',
-                        paddingRight: '28px',
-                      }}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
                     >
                       {Array.from({ length: 20 }, (_, i) => {
                         const year = new Date().getFullYear() - i;
@@ -584,7 +567,7 @@ const Step2Skills = ({ state, dispatch, onNext, onBack }) => {
                           </option>
                         );
                       })}
-                    </select>
+                    </BrandedSelect>
 
                     {certToRemove === index ? (
                       <div className="flex gap-2 text-xs">
@@ -961,19 +944,13 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
                 label="From"
                 htmlFor="startTime"
               >
-                <select
+                <BrandedSelect
                   id="startTime"
                   value={state.startTime}
                   onChange={(e) =>
                     dispatch({ type: 'SET_FIELD', field: 'startTime', value: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233D4F8A' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '36px',
-                  }}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
                 >
                   <option value="">Select time</option>
                   {HOURS.map((hour) => (
@@ -981,27 +958,21 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
                       {hour}
                     </option>
                   ))}
-                </select>
+                </BrandedSelect>
               </FormField>
 
               <FormField
                 label="To"
                 htmlFor="endTime"
               >
-                <select
+                <BrandedSelect
                   id="endTime"
                   value={state.endTime}
                   onChange={(e) =>
                     dispatch({ type: 'SET_FIELD', field: 'endTime', value: e.target.value })
                   }
                   disabled={!state.startTime}
-                  className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none disabled:opacity-60"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233D4F8A' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '36px',
-                  }}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors disabled:opacity-60"
                 >
                   <option value="">Select time</option>
                   {HOURS.map((hour) => (
@@ -1009,7 +980,7 @@ const Step4Availability = ({ state, dispatch, onComplete }) => {
                       {hour}
                     </option>
                   ))}
-                </select>
+                </BrandedSelect>
               </FormField>
             </div>
             {!isValidTimeRange && state.startTime && state.endTime && (
@@ -1455,7 +1426,9 @@ export default function OnboardingPage() {
       const availability = buildAvailability(state.workingDays, state.startTime, state.endTime);
       await api.updateAvailability({ availability, responseTime: state.responseTime });
 
-      router.push('/worker/dashboard?welcome=true');
+      const intendedUrl = sessionStorage.getItem('signupIntendedUrl');
+      sessionStorage.removeItem('signupIntendedUrl');
+      router.push(intendedUrl?.startsWith('/jobs/') ? intendedUrl : '/worker/dashboard?welcome=true');
     } catch (err) {
       console.error('Onboarding error:', err.message);
       dispatch({

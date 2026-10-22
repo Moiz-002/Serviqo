@@ -1,5 +1,14 @@
 const express = require('express');
-const { createJob, getJobs, getJobById, updateJob, deleteJob, markJobComplete } = require('../controllers/job');
+const {
+  createJob,
+  getJobs,
+  getPublicJobs,
+  getPublicJobById,
+  getJobById,
+  updateJob,
+  deleteJob,
+  markJobComplete,
+} = require('../controllers/job');
 const { checkAuth, checkRole } = require('../middlewares/auth');
 const { uploadJobImages } = require('../middlewares/upload');
 const {
@@ -9,6 +18,9 @@ const {
 } = require('../controllers/recommendation');
 
 const router = express.Router();
+
+router.get('/public', getPublicJobs);
+router.get('/public/:jobId', getPublicJobById);
 
 router.use(checkAuth);
 

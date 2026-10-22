@@ -21,28 +21,42 @@ export default function AdminDashboardLayout({ children }) {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
+  const [authStatus, setAuthStatus] = useState('checking');
+  const [authRetry, setAuthRetry] = useState(0);
 
-  // Verify admin session on mount and on route changes — defensive guard in
-  // addition to the edge middleware. If the session is missing or non-admin,
-  // bounce to /admin/login.
+  // Keep dashboard content hidden until the server confirms the admin session.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { user } = await api.getMe();
+        const data = await api.getMe();
         if (cancelled) return;
+        const user = data.user || data;
         if (!user || user.role !== 'admin') {
-          router.replace('/admin/login');
+          setAuthStatus('checking');
+          const destination = user?.role === 'worker'
+            ? '/worker/dashboard'
+            : user?.role === 'customer'
+              ? '/customer/dashboard'
+              : '/admin/login';
+          router.replace(destination);
           return;
         }
         setAdminUser(user);
+        setAuthStatus('authorized');
       } catch (err) {
         if (cancelled) return;
-        router.replace('/admin/login');
+        if (err.status === 401 || err.status === 403) {
+          setAuthStatus('checking');
+          router.replace('/admin/login');
+          return;
+        }
+        console.error('Failed to verify admin session:', err);
+        setAuthStatus('error');
       }
     })();
     return () => { cancelled = true; };
-  }, [pathname, router]);
+  }, [authRetry, router]);
 
   const handleLogout = async () => {
     try {
@@ -70,6 +84,34 @@ export default function AdminDashboardLayout({ children }) {
       document.body.style.overflow = 'unset';
     }
   }, [isSidebarOpen]);
+
+  if (authStatus !== 'authorized') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 text-center">
+        {authStatus === 'checking' ? (
+          <div role="status" aria-label="Verifying admin session">
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-navy-600/20 border-t-navy-600" />
+            <p className="mt-4 text-sm font-medium text-neutral-600">Verifying admin access…</p>
+          </div>
+        ) : (
+          <div>
+            <p className="font-semibold text-neutral-900">Unable to verify your admin session.</p>
+            <p className="mt-1 text-sm text-neutral-600">Check your connection and try again.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthStatus('checking');
+                setAuthRetry((attempt) => attempt + 1);
+              }}
+              className="mt-3 font-semibold text-primary hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const NavContent = () => (
     <>

@@ -78,6 +78,86 @@ test('admin verification rejection requires an explicit reason', async () => {
   assert.equal(res.body.error, 'A rejection reason is required');
 });
 
+test('admin verification queue includes worker profile pictures', async () => {
+  let selectedFields = '';
+  const worker = { _id: 'worker-id', profilePicture: 'serviqo/profile/photo' };
+  User.find = () => ({
+    select(fields) {
+      selectedFields = fields;
+      return Promise.resolve([worker]);
+    },
+  });
+
+  const res = response();
+  await adminController.getPendingVerifications({}, res);
+
+  assert.match(selectedFields, /\bprofilePicture\b/);
+  assert.equal(res.body.verifications[0].profilePicture, worker.profilePicture);
+});
+
+test('admin analytics filters counts and activity by the requested UTC date range', async () => {
+  const originalUserCount = User.countDocuments;
+  const originalJobCount = Job.countDocuments;
+  const originalDisputeCount = require('../models/Dispute').countDocuments;
+  const originalUserAggregate = User.aggregate;
+  const originalJobAggregate = Job.aggregate;
+  const userFilters = [];
+  const jobFilters = [];
+  const disputeFilters = [];
+
+  try {
+    User.countDocuments = async (filter) => { userFilters.push(filter); return 3; };
+    Job.countDocuments = async (filter) => { jobFilters.push(filter); return 4; };
+    const Dispute = require('../models/Dispute');
+    Dispute.countDocuments = async (filter) => { disputeFilters.push(filter); return 2; };
+    User.aggregate = async () => [
+      { _id: { date: '2026-10-01', role: 'customer' }, count: 2 },
+    ];
+    Job.aggregate = async (pipeline) => (
+      pipeline[1].$group._id.date
+        ? [{ _id: { date: '2026-10-02', status: 'completed' }, count: 1 }]
+        : [{ _id: 'Plumbing', count: 2 }]
+    );
+
+    const res = response();
+    await adminController.getAnalytics({
+      query: { startDate: '2026-10-01', endDate: '2026-10-02' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body.dateRange, { startDate: '2026-10-01', endDate: '2026-10-02' });
+    assert.deepEqual(res.body.trend, [
+      { date: '2026-10-01', users: 2, jobs: 0 },
+      { date: '2026-10-02', users: 0, jobs: 1 },
+    ]);
+    assert.deepEqual(res.body.categories, [{ name: 'Plumbing', count: 2, percentage: 100 }]);
+    assert.ok(userFilters.every((filter) => filter.createdAt.$gte.toISOString() === '2026-10-01T00:00:00.000Z'
+      && filter.createdAt.$lt.toISOString() === '2026-10-03T00:00:00.000Z'));
+    assert.ok(jobFilters.every((filter) => filter.createdAt.$gte.toISOString() === '2026-10-01T00:00:00.000Z'
+      && filter.createdAt.$lt.toISOString() === '2026-10-03T00:00:00.000Z'));
+    assert.equal(disputeFilters[0].createdAt.$lt.toISOString(), '2026-10-03T00:00:00.000Z');
+  } finally {
+    User.countDocuments = originalUserCount;
+    Job.countDocuments = originalJobCount;
+    require('../models/Dispute').countDocuments = originalDisputeCount;
+    User.aggregate = originalUserAggregate;
+    Job.aggregate = originalJobAggregate;
+  }
+});
+
+test('admin analytics rejects invalid or oversized date ranges', async () => {
+  for (const query of [
+    { startDate: '2026-02-30', endDate: '2026-03-01' },
+    { startDate: '2026-10-02', endDate: '2026-10-01' },
+    { startDate: '2025-01-01', endDate: '2026-01-02' },
+    { startDate: '2026-10-01' },
+  ]) {
+    const res = response();
+    await adminController.getAnalytics({ query }, res);
+    assert.equal(res.statusCode, 400);
+  }
+});
+
 test('unverified workers cannot submit otherwise valid bids', async () => {
   User.findById = () => ({
     select: async () => ({ role: 'worker', isActive: true, isVerified: true, cnicVerified: false }),
