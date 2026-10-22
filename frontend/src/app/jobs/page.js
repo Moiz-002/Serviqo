@@ -161,7 +161,7 @@ export default function PublicJobsPage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
               <BriefcaseBusiness className="h-3.5 w-3.5" /> Customer job board
             </span>
-            <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">Find your next great job.</h1>
+            <h1 className="mt-5 text-4xl font-black !text-white tracking-tight sm:text-5xl lg:text-6xl">Find your next great job.</h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-blue-100/80 sm:text-lg">
               Explore customer requests across Pakistan. Browse freely; sign in as a verified professional to send a proposal.
             </p>
