@@ -154,8 +154,10 @@ export default function PublicJobsPage() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden bg-[#0b1735] pb-16 pt-10 text-white sm:pb-20 sm:pt-14">
-        <div aria-hidden="true" className="absolute -right-24 -top-44 h-[30rem] w-[30rem] rounded-full bg-cyan-400/15 blur-3xl" />
+      <section className="relative bg-[#0b1735] pb-16 pt-10 text-white sm:pb-20 sm:pt-14">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-24 -top-44 h-[30rem] w-[30rem] rounded-full bg-cyan-400/15 blur-3xl" />
+        </div>
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
@@ -166,39 +168,36 @@ export default function PublicJobsPage() {
               Explore customer requests across Pakistan. Browse freely; sign in as a verified professional to send a proposal.
             </p>
           </div>
-          <form onSubmit={applyFilters} className="mt-9 grid gap-3 rounded-3xl border border-white/10 bg-white p-3 shadow-2xl shadow-black/20 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+          <form onSubmit={applyFilters} className="relative z-10 mt-9 grid gap-3 rounded-3xl border border-white/10 bg-white p-3 shadow-2xl shadow-black/20 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
             <label className="search-field flex min-h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition-colors focus-within:border-cyan-600">
               <Search className="h-4 w-4 shrink-0 text-slate-400" />
               <span className="sr-only">Search jobs</span>
               <input value={filters.q} onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))} placeholder="Job title or keywords" className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400" />
             </label>
-            <label className="search-field flex min-h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition-colors focus-within:border-cyan-600">
-              <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className="sr-only">City</span>
-              <BrandedSelect aria-label="Filter jobs by city" value={filters.city} onChange={(event) => setFilters((current) => ({ ...current, city: event.target.value }))} containerClassName="flex-1" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-slate-700">
+            <div className="search-field relative min-w-0 rounded-2xl border border-slate-200 bg-slate-50 transition-colors focus-within:border-cyan-600">
+              <MapPin aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 my-auto h-4 w-4 text-slate-400" />
+              <BrandedSelect aria-label="Filter jobs by city" value={filters.city} onChange={(event) => setFilters((current) => ({ ...current, city: event.target.value }))} containerClassName="w-full" className="min-h-12 rounded-2xl bg-transparent py-2 pl-11 pr-4 text-sm font-semibold text-slate-700">
                 <option value="">All cities</option>
                 {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
               </BrandedSelect>
-            </label>
-            <label className="search-field flex min-h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition-colors focus-within:border-cyan-600">
-              <SlidersHorizontal className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className="sr-only">Service category</span>
-              <BrandedSelect aria-label="Filter jobs by service category" value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))} getOptionIcon={getJobCategoryIcon} containerClassName="flex-1" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-slate-700">
+            </div>
+            <div className="search-field relative min-w-0 rounded-2xl border border-slate-200 bg-slate-50 transition-colors focus-within:border-cyan-600">
+              <SlidersHorizontal aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 my-auto h-4 w-4 text-slate-400" />
+              <BrandedSelect aria-label="Filter jobs by service category" value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))} getOptionIcon={getJobCategoryIcon} containerClassName="w-full" className="min-h-12 rounded-2xl bg-transparent py-2 pl-11 pr-4 text-sm font-semibold text-slate-700">
                 <option value="">All services</option>
                 {CATEGORIES.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
               </BrandedSelect>
-            </label>
-            <label className="search-field flex min-h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition-colors focus-within:border-cyan-600">
-              <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className="sr-only">Urgency</span>
-              <BrandedSelect aria-label="Filter jobs by urgency" value={filters.urgency} onChange={(event) => setFilters((current) => ({ ...current, urgency: event.target.value }))} containerClassName="flex-1" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-slate-700">
+            </div>
+            <div className="search-field relative min-w-0 rounded-2xl border border-slate-200 bg-slate-50 transition-colors focus-within:border-cyan-600">
+              <CalendarDays aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 my-auto h-4 w-4 text-slate-400" />
+              <BrandedSelect aria-label="Filter jobs by urgency" value={filters.urgency} onChange={(event) => setFilters((current) => ({ ...current, urgency: event.target.value }))} containerClassName="w-full" className="min-h-12 rounded-2xl bg-transparent py-2 pl-11 pr-4 text-sm font-semibold text-slate-700">
                 <option value="">Any timeline</option>
                 <option value="emergency">Emergency</option>
                 <option value="today">Today</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="flexible">Flexible</option>
               </BrandedSelect>
-            </label>
+            </div>
             <div className="flex gap-2">
               <button type="submit" className="min-h-12 flex-1 rounded-2xl bg-[#142b59] px-5 text-sm font-extrabold text-white transition hover:bg-[#1b3a74]">Search</button>
               <button type="button" onClick={clearFilters} aria-label="Clear filters" className="inline-flex min-h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button>
